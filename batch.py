@@ -209,7 +209,7 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
         jjg = bldrgst.fetch_jijigu(p["sigunguCd"], p["bjdongCd"], p["bun"],
                                    p["ji"], service_key, p["platGbCd"])
     except portal.PortalError as e:
-        return _fail_row(t, year, f"건축물대장 실패 ({e})")
+        return _fail_row(t, year, f"건축물대장 실패 ({portal.hide_keys(e)})")
 
     s = bldrgst.summarize(dongs) if dongs else {}
     area = s.get("total_area", 0.0)
@@ -221,7 +221,7 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
                                   plat_gb=p["platGbCd"],
                                   timeout=8, retries=1, deadline=deadline)
     except portal.PortalError as e:
-        return _fail_row(t, year, f"건물에너지 실패 ({e})")
+        return _fail_row(t, year, f"건물에너지 실패 ({portal.hide_keys(e)})")
 
     es = bldengy.summarize(data["elec"])
     gs = bldengy.summarize(data["gas"])

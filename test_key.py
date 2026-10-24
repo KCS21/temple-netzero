@@ -34,7 +34,7 @@ def main() -> int:
     try:
         rows, total = juso.search(keyword, CONFM_KEY, per_page=5)
     except juso.JusoError as e:
-        print(f"  실패 - {e}\n")
+        print(f"  실패 - {portal.hide_keys(e)}\n")
         return 1
     if not rows:
         print("  결과가 없습니다. 동 이름만 넣고 다시 해보세요.\n")
@@ -57,7 +57,7 @@ def main() -> int:
         dongs = bldrgst.fetch_dongs(p["sigunguCd"], p["bjdongCd"], p["bun"],
                                     p["ji"], SERVICE_KEY, p["platGbCd"])
     except portal.PortalError as e:
-        print(f"  실패 - {e}\n")
+        print(f"  실패 - {portal.hide_keys(e)}\n")
         return 1
 
     if not dongs:

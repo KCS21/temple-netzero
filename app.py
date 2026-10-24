@@ -1107,7 +1107,7 @@ if not SHARE:
                 res = batch.run(targets, year_b, CONFM_KEY, SERVICE_KEY,
                                 limit=10, retry_failed=bool(again), progress=prog)
             except Exception as e:
-                bar.empty(); st.error(f"조회 중 멈췄습니다: {e}"); st.stop()
+                bar.empty(); st.error(f"조회 중 멈췄습니다: {portal.hide_keys(e)}"); st.stop()
             bar.empty()
 
             st.success(f"**성공 {res['ok']}곳 · 실패 {len(res['failed'])}곳** "

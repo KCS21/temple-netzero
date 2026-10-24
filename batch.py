@@ -183,28 +183,37 @@ BUDGET = 180
 
 def run_one(t: Target, year: int, confm_key: str, service_key: str,
             budget: int = BUDGET,
-            keep: Optional[dict] = None) -> Dict[str, str]:
+            keep: Optional[dict] = None,
+            found=None) -> Dict[str, str]:
     """한 곳을 조회해 기록 한 줄을 만듭니다. 실패해도 예외를 내지 않습니다.
 
     `keep` 에 빈 사전을 주면 월별 전기·가스를 거기에 담아 줍니다.
     **회원용 기록에는 안 들어갑니다.** 컨설팅 분석처럼 월별이 필요한
     쪽에서만 쓰고, `store.COLUMNS` 와 화면은 그대로입니다.
+
+    `found` 에 이미 찾아 둔 주소(`juso.Juso`)를 주면 **주소를 다시 찾지
+    않고** 그것을 씁니다. 부르는 쪽이 저만의 보정 규칙을 가진 경우를
+    위한 자리입니다 — **규칙 자체는 여기 두지 않습니다.** 안 주면
+    지금까지와 똑같이 이 함수가 찾습니다.
     """
     deadline = time.time() + budget
     # ── 1. 주소 ──
-    rows, last = [], ""
-    for kw in address_tries(t.addr, t.name):
-        try:
-            rows, _ = juso.search(kw, confm_key, per_page=5)
-        except juso.JusoError as e:
-            last = str(e)
-            continue
-        if rows:
-            break
-    if not rows:
-        return _fail_row(t, year, f"주소 못 찾음 ({last or '결과 없음'})")
+    if found is not None:
+        j = found
+    else:
+        rows, last = [], ""
+        for kw in address_tries(t.addr, t.name):
+            try:
+                rows, _ = juso.search(kw, confm_key, per_page=5)
+            except juso.JusoError as e:
+                last = str(e)
+                continue
+            if rows:
+                break
+        if not rows:
+            return _fail_row(t, year, f"주소 못 찾음 ({last or '결과 없음'})")
 
-    j = pick_best(rows, t.name)
+        j = pick_best(rows, t.name)
     p = j.building_params()
 
     # ── 2. 건축물대장 ──
@@ -218,6 +227,12 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
         return _fail_row(t, year, f"건축물대장 실패 ({portal.hide_keys(e)})")
 
     s = bldrgst.summarize(dongs) if dongs else {}
+    if keep is not None:
+        # 분석 쪽에서 「이 건물이 그 절이 맞나」를 볼 때 씁니다.
+        keep["주용도"] = " / ".join(
+            sorted({(d.mainPurpsCdNm or '').strip() for d in dongs}
+                   - {''}))
+        keep["건물명"] = j.bdNm
     area = s.get("total_area", 0.0)
 
     # ── 3. 건물에너지 ──

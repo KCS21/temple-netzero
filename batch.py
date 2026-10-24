@@ -182,8 +182,14 @@ BUDGET = 180
 
 
 def run_one(t: Target, year: int, confm_key: str, service_key: str,
-            budget: int = BUDGET) -> Dict[str, str]:
-    """한 곳을 조회해 기록 한 줄을 만듭니다. 실패해도 예외를 내지 않습니다."""
+            budget: int = BUDGET,
+            keep: Optional[dict] = None) -> Dict[str, str]:
+    """한 곳을 조회해 기록 한 줄을 만듭니다. 실패해도 예외를 내지 않습니다.
+
+    `keep` 에 빈 사전을 주면 월별 전기·가스를 거기에 담아 줍니다.
+    **회원용 기록에는 안 들어갑니다.** 컨설팅 분석처럼 월별이 필요한
+    쪽에서만 쓰고, `store.COLUMNS` 와 화면은 그대로입니다.
+    """
     deadline = time.time() + budget
     # ── 1. 주소 ──
     rows, last = [], ""
@@ -223,6 +229,9 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
     except portal.PortalError as e:
         return _fail_row(t, year, f"건물에너지 실패 ({portal.hide_keys(e)})")
 
+    if keep is not None:
+        keep["elec"] = dict(data["elec"])
+        keep["gas"] = dict(data["gas"])
     es = bldengy.summarize(data["elec"])
     gs = bldengy.summarize(data["gas"])
     r = em.diagnose(es["total"], gs["total"],

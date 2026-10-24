@@ -15,6 +15,8 @@ from typing import List, Tuple
 
 import requests
 
+import portal          # 오류 문구에서 승인키를 가리는 hide_keys 하나만 씁니다
+
 # 검색 API 호출 주소. 앞의 것이 실패하면 뒤의 것으로 한 번 더 시도합니다.
 ENDPOINTS = [
     "https://business.juso.go.kr/addrlink/addrLinkApi.do",
@@ -214,7 +216,8 @@ def search(
             rows = _name_first(rows, kw)[:per_page]
         return rows, total
 
-    raise JusoError(f"주소 서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요. ({last_err})")
+    raise JusoError("주소 서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요. "
+                    f"({portal.hide_keys(last_err)})")
 
 
 def _unpack(data: dict) -> Tuple[List[Juso], int]:

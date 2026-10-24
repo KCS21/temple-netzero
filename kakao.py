@@ -25,6 +25,8 @@ from typing import List, Tuple
 
 import requests
 
+import portal          # hide_keys
+
 URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
 SIZE = 15          # 한 쪽 최대 15. page 는 최대 45 쪽
 MAX_PAGES = 3      # 45건이면 충분합니다. 더 보려면 주소로 찾는 편이 빠릅니다
@@ -108,7 +110,7 @@ def search(keyword: str, rest_key: str, pages: int = MAX_PAGES
         except requests.RequestException as e:
             raise KakaoError(
                 "지도 서버에 연결하지 못했습니다." + _NL + _NL +
-                f"**주소로 찾기는 그대로 됩니다.** ({e})")
+                f"**주소로 찾기는 그대로 됩니다.** ({portal.hide_keys(e)})")
         if r.status_code != 200:
             raise KakaoError(_message(r.status_code, r.text))
         try:

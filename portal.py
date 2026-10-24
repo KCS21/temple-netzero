@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import re
 import time
 from typing import List, Tuple
 
@@ -34,6 +35,18 @@ HINT_20 = "\n신청한 지 얼마 안 됐다면 권한이 아직 안 열렸을 �
 
 NL = chr(10)            # 줄바꿈
 MAX_ROWS = 100          # 1회 요청 최대 목록 수 (활용가이드 기준)
+
+
+# 오류 문구에 **인증키가 섞여 나옵니다.** requests 의 예외 글월에 요청 URL 이
+# 통째로 들어 있고, 그 URL 끝에 serviceKey 가 붙어 있습니다. 화면은 이 글월을
+# st.error 로 그대로 찍으므로, 배포판에서 제공기관이 503 을 내면 **지나가는
+# 누구에게나 인증키가 보입니다.** 내보내기 전에 가립니다.
+_KEY_IN_URL = re.compile(r"(serviceKey|confmKey|KakaoAK)([=\s:]+)([^&\s)\"']+)", re.I)
+
+
+def hide_keys(text) -> str:
+    """오류 문구에서 인증키를 가립니다. 화면·기록 어디로 나가든 거쳐야 합니다."""
+    return _KEY_IN_URL.sub(lambda m: f"{m.group(1)}{m.group(2)}***", str(text))
 
 
 class PortalError(Exception):
@@ -82,14 +95,14 @@ def request(base: str, op: str, params: dict, service_key: str,
             + NL +
             "여러 번 해도 같으면 공공데이터포털이 점검 중일 수 있습니다."
             + NL + NL +
-            f"(서버가 보낸 내용: {head})"
+            f"(서버가 보낸 내용: {hide_keys(head)})"
         )
     raise PortalError(
         f"서버에 연결하지 못했습니다. {tries}번 시도했습니다."
         + NL + NL +
         "인터넷 연결을 확인하시고, 1~2분 뒤에 다시 눌러 보세요."
         + NL + NL +
-        f"({last})"
+        f"({hide_keys(last)})"
     )
 
 

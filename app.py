@@ -62,9 +62,29 @@ def _share_mode() -> bool:
 
 SHARE = _share_mode()
 
+def _kakao_key() -> str:
+    """카카오 키. **무슨 일이 있어도 도구를 멈추지 않습니다.**
+
+    지도 검색은 있으면 좋은 것이지 없으면 안 되는 것이 아닙니다(작업지시 07 ①).
+    그런데 이 한 줄 때문에 **배포판이 통째로 멈춘 적이 있습니다**(2026-10-24).
+
+    까닭은 Streamlit 이 `app.py` 만 다시 돌리고 **불러온 모듈은 그대로 두기**
+    때문입니다. 새 판을 올리면 `app.py` 는 새것인데 `keys` 는 옛것이 메모리에
+    남아, 아직 없는 `keys.kakao` 를 부르다 AttributeError 로 첫 화면조차
+    못 떴습니다. 서버를 다시 띄우면 풀리지만, 그때까지 아무도 못 씁니다.
+
+    그래서 여기서는 **어떤 오류든 삼키고 빈 문자열**을 돌려줍니다.
+    키가 없는 것과 똑같이 취급되어 단추만 숨습니다.
+    """
+    try:
+        return keys.kakao()
+    except Exception:
+        return ""
+
+
 try:
     CONFM_KEY, SERVICE_KEY = keys.load()
-    KAKAO_KEY = keys.kakao()      # 없어도 됩니다. 단추만 숨깁니다
+    KAKAO_KEY = _kakao_key()      # 없어도 됩니다. 단추만 숨깁니다
 except keys.KeyError_ as e:
     st.title("사찰 넷제로 진단")
     st.error(str(e))

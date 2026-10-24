@@ -33,6 +33,7 @@ import bldrgst
 import emissions as em
 import juso
 import portal
+import region
 import store
 
 LIST_NAME = "녹색사찰_명단.csv"
@@ -227,7 +228,12 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
     r = em.diagnose(es["total"], gs["total"],
                     "산중" if j.is_mountain else "도심")
     lvl, _ = em.confidence(es["total"], gs["total"])
-    per, warn = em.area_check(es["total"], area)
+    # 면적당 에너지 — 전기+가스를 **주차장 뺀 연면적**으로 나눠 그 지역
+    # 사찰 원단위와 견줍니다. 도시가스가 0 이면 배수를 내지 않습니다.
+    use = em.area_use(
+        es["total"], gs["total"], s.get("area_excl_parking", area),
+        region.of(j.jibunAddr), parking_area=s.get("parking_area", 0.0),
+    )
 
     why = ""
     if not dongs:
@@ -241,7 +247,7 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
         "Scope1(t)": f"{r.gas_t:.2f}", "Scope2(t)": f"{r.elec_t:.2f}",
         "공개자료 배출량(t)": f"{r.subtotal_t:.2f}",
         "전기(kWh)": f"{es['total']:.0f}", "가스(kWh)": f"{gs['total']:.0f}",
-        "면적당 전기(kWh/m2)": f"{per:.0f}" if per else "",
+        "면적당 전기(kWh/m2)": f"{use.elec_per:.0f}" if use.elec_per else "",
         "난방부담 지표": f"{es['ratio']:.2f}" if es.get("ratio") else "",
         "동수": str(s.get("count", 0)),
         "연면적(m2)": f"{area:.1f}" if area else "",
@@ -249,14 +255,80 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
         "신식 동수": str(s.get("modern_count", 0)),
         "태양광 필요용량(kW)": f"{r.solar_kw:.0f}",
         "신뢰도": lvl,
-        "대장누락 의심": "예" if warn else "아니오",
+        # 자동 판정을 멈췄습니다. 고정 200 기준이 없어졌고 새 구간은
+        # 50곳 분포를 본 뒤에 긋습니다(지시 04 5번).
+        "대장누락 의심": "",
         "제외된 자료(건)": str(data.get("dropped", 0)),
         "실패사유": why,
         "전력 기준": r.elec_basis, "도시가스 기준": r.gas_basis, "GWP": r.gwp,
         "용도지역": " / ".join(jjg),
         "시군구": p["sigunguCd"], "법정동": p["bjdongCd"],
         "번": p["bun"], "지": p["ji"], "대지구분": p["platGbCd"],
+        # ── 원단위 비교 (지시 04). store.COLUMNS 밖이라 CSV 로만 나갑니다 ──
+        "지역": region.region4(j.jibunAddr),
+        "지역(원단위)": use.region,
+        "주차장 제외 연면적(m2)": f"{use.area:.1f}" if use.area else "",
+        "옥내 주차장(m2)": f"{use.parking_area:.1f}" if use.parking_area else "",
+        "면적당 에너지(kWh/m2)": f"{use.per:.0f}" if use.per else "",
+        "사찰 원단위": str(use.base) if use.base else "",
+        "원단위 대비 배수": f"{use.ratio:.2f}" if use.has_ratio else "",
+        "배수 미산출 사유": "" if use.has_ratio else use.note,
     }
+
+
+# ── 원단위 배수 CSV ─────────────────────────────────────────
+#
+# 구간을 그으려면 50곳의 분포를 봐야 합니다(지시 04 5번·10번).
+# `사찰기록.csv` 는 store.COLUMNS 가 정해져 있고 5단계가 물려 있어
+# 손대지 않기로 했으므로(지시 04 9번), 배수는 **별도 파일**에 쌓습니다.
+RATIO_NAME = "원단위_배수.csv"
+RATIO_COLUMNS = [
+    "번호", "사찰", "지번주소", "조회연도",
+    "지역", "지역(원단위)",
+    "연면적(m2)", "옥내 주차장(m2)", "주차장 제외 연면적(m2)",
+    "전기(kWh)", "가스(kWh)",
+    "면적당 전기(kWh/m2)", "면적당 에너지(kWh/m2)",
+    "사찰 원단위", "원단위 대비 배수", "배수 미산출 사유",
+    "동수", "전통 동수", "신식 동수", "신뢰도", "실패사유",
+]
+
+
+def ratio_path(folder: str = "") -> str:
+    here = folder or os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(here, RATIO_NAME)
+
+
+def ratio_rows(folder: str = "") -> List[dict]:
+    p = ratio_path(folder)
+    if not os.path.exists(p):
+        return []
+    with io.open(p, encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def save_ratio(row: dict, folder: str = "") -> int:
+    """한 곳을 쌓습니다. 같은 번호·같은 해는 덮어씁니다.
+
+    한 곳이 끝날 때마다 부르므로 중간에 끊겨도 이어집니다.
+    엑셀이 한글을 안 깨뜨리도록 UTF-8 BOM 으로 씁니다.
+    """
+    rows = ratio_rows(folder)
+    key = (str(row.get("번호", "")).strip() or str(row.get("사찰", "")).strip(),
+           str(row.get("조회연도", "")).strip())
+    keep = [r for r in rows
+            if (str(r.get("번호", "")).strip() or str(r.get("사찰", "")).strip(),
+                str(r.get("조회연도", "")).strip()) != key]
+    keep.append({c: str(row.get(c, "")) for c in RATIO_COLUMNS})
+    with io.open(ratio_path(folder), "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=RATIO_COLUMNS, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(keep)
+    return len(keep)
+
+
+def ratio_csv_bytes(folder: str = "") -> bytes:
+    p = ratio_path(folder)
+    return io.open(p, "rb").read() if os.path.exists(p) else b""
 
 
 def run(
@@ -295,6 +367,7 @@ def run(
         row = run_one(t, year, confm_key, service_key)
         why = (row.get("실패사유") or "").strip()
         store.save(row, folder)          # 한 곳씩 바로 저장 = 끊겨도 이어짐
+        save_ratio(row, folder)          # 배수는 별도 파일에(지시 04 10번)
         if why:
             failed.append((t, why))
         else:

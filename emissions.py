@@ -260,28 +260,139 @@ def confidence(elec_kwh: float, gas_kwh: float) -> Tuple[str, str]:
     return ("낮음", "공개자료가 없습니다. 방문해서 고지서를 받아야 합니다.")
 
 
-# ── 대장 누락 자동 탐지 ──────────────────────────────────────
-# 면적당 전기. 조사된 사찰은 12~138 kWh/m2 이고 실상사만 672 로 튑니다.
-# 518 m2 건물이 연간 348,369 kWh 를 쓸 수는 없습니다.
-AREA_KWH_LIMIT = 200
-AREA_SAMPLES = [("법문사", 12), ("수국사", 80), ("봉은사", 85),
-                ("금산사", 138), ("실상사", 672)]
+# ── 면적당 에너지 — 그린투게더 원단위와 견주기 ────────────────
+#
+# **옛 방식(전기만 / 고정 200 kWh/m2)은 폐기되었습니다.**
+# 「2025 건물에너지사용량통계」(국토교통부·한국부동산원, 국가승인통계
+# 제408003호) 원문으로 원단위의 정의가 확인되었습니다. 14쪽.
+#
+#   분자  = 전기 + 도시가스 + 지역난방 **합**        (통계집 3쪽)
+#   분모  = **주차장을 뺀** 연면적                   (3쪽·8쪽)
+#   대표값 = **중간값(50%)**. 평균이 아닙니다        (3쪽)
+#   지역  = 에너지절약설계기준 별표1.
+#           중부1·2 -> 중부, 제주 -> 남부로 합침     (2쪽·8쪽)
+#
+# **갱신 시점이 배출계수와 다릅니다.**
+#   전력 배출계수  매년 12월
+#   원단위 EUI     매년 7월 말  -> 다음은 2027년 7월(2026년 사용량)
+#
+# 교회·성당도 함께 둡니다. 나중에 대상을 넓힐 때 바로 쓰입니다.
+EUI_YEAR = 2025
+EUI_SOURCE = "2025 건물에너지사용량통계 (국토교통부·한국부동산원)"
+EUI: Dict[str, Dict[str, int]] = {
+    "사찰": {"중부": 103, "남부": 79},
+    "교회": {"중부": 73,  "남부": 56},
+    "성당": {"중부": 71,  "남부": 57},
+}
+EUI_KIND_DEFAULT = "사찰"
+
+# 원단위가 중간값이라는 것을 화면에 밝혀야 합니다. 전국 사찰의 절반이 그
+# 아래라는 뜻이고, 작은 암자가 표본의 절반을 채우므로 큰 절이 중간값을
+# 웃도는 것은 그 자체로 이상한 일이 아닙니다.
+EUI_NOTE = (
+    "원단위는 전국 사찰의 **중간값**입니다(평균이 아닙니다). "
+    "절반이 이 아래라는 뜻이고, 작은 암자가 표본의 절반을 채웁니다. "
+    "큰 절이 중간값을 웃도는 것은 그 자체로 이상한 일이 아닙니다."
+)
+
+# 건물에너지 API 에는 **지역난방 오퍼레이션이 없습니다.**
+# getBeHeatUsgInfo 등 다섯 가지를 시험했는데 전부 NO_OPENAPI_SERVICE_ERROR
+# 였습니다(2026-10-24 확인). 그래서 분자가 전기+도시가스뿐입니다.
+# 지역난방을 쓰는 사찰이면 분자가 모자라 배수가 낮게 나옵니다.
+EUI_NUMERATOR_NOTE = "전기 + 도시가스. 지역난방은 건물 단위 API 가 주지 않습니다."
 
 
-def area_check(elec_kwh: float, total_area: float) -> Tuple[float, str]:
-    """면적당 전기 사용량으로 건축물대장 누락을 의심합니다.
+def fuel_kwh(fuel: str, qty: float) -> float:
+    """연료 사용량을 kWh 로 바꿉니다. 원단위 분자에 더하려고 씁니다.
 
-    (kWh/m2, 경고문) 을 돌려줍니다. 이상이 없으면 경고문은 빈 문자열입니다.
+    산중 사찰은 도시가스가 없고 LPG·등유로 난방합니다. 4단계에서 현장
+    조사값을 넣으면 그때 분자에 더해 배수를 낼 수 있습니다.
     """
-    if not total_area or total_area <= 0 or not elec_kwh:
-        return (0.0, "")
-    per = float(elec_kwh) / float(total_area)
-    if per <= AREA_KWH_LIMIT:
-        return (per, "")
-    sample = " · ".join(f"{n} {v}" for n, v in AREA_SAMPLES[:4])
-    return (per, (
-        f"면적당 전기가 {per:,.0f} kWh/m²입니다. "
-        f"조사된 사찰은 {sample} 수준이므로 {AREA_KWH_LIMIT}을 크게 넘습니다.\n\n"
-        "건축물대장에 **빠진 건물이 있을 가능성**이 높습니다. 전기가 부풀려진 것이 "
-        "아니라 면적이 모자란 쪽입니다. 현장에서 전각을 확인해 주세요."
-    ))
+    f = FUELS.get(fuel)
+    if not f or not qty:
+        return 0.0
+    return float(qty) * f.hv / MJ_PER_KWH
+
+
+def eui_base(region2: str, kind: str = EUI_KIND_DEFAULT):
+    """그 지역 원단위. 지역을 모르면 None 입니다."""
+    return EUI.get(kind, {}).get(region2)
+
+
+@dataclass
+class AreaUse:
+    """면적당 에너지 한 묶음. 화면과 CSV 가 이것만 보면 됩니다."""
+
+    region: str = ""              # "중부" | "남부" | ""  (모르면 빈 문자열)
+    area: float = 0.0             # 주차장을 뺀 연면적
+    parking_area: float = 0.0     # 뺀 옥내 주차장 면적
+    elec_kwh: float = 0.0
+    gas_kwh: float = 0.0
+    other_kwh: float = 0.0        # 현장 조사값(LPG·등유 등)을 kWh 로
+    elec_per: float = 0.0         # 전기만 kWh/m2. **늘 보여 줍니다**
+    per: float = 0.0              # 전체 kWh/m2. 낼 수 없으면 0
+    base: int = 0                 # 그 지역 원단위
+    ratio: float = 0.0            # 배수. **낼 수 없으면 0**
+    note: str = ""                # 배수를 못 내는 까닭
+
+    @property
+    def has_ratio(self) -> bool:
+        return self.ratio > 0
+
+
+# 도시가스가 0 이고 현장 조사값도 없으면 배수를 내지 않습니다.
+#
+# 산중 사찰은 도시가스가 안 들어가고 LPG·등유로 난방합니다. API 는 그
+# 연료를 주지 않으므로 **분자에 난방이 통째로 빠집니다.** 그대로 배수를
+# 내면 금산사가 1.34배로 「그럭저럭」처럼 보이는데, 실제 총에너지는 이보다
+# 큽니다. 낮은 배수를 보여 주면 방문 순서에서 뒤로 밀리는데 정작 LPG 를
+# 가장 많이 쓰는 절일 수 있습니다.
+#
+# 이것은 한계이지 버그가 아닙니다. 숨기지 않고 화면에 적습니다.
+NO_HEAT_NOTE = "난방 연료 미확인, 현장 확인 필요"
+
+
+def area_use(
+    elec_kwh: float,
+    gas_kwh: float,
+    area: float,
+    region2: str,
+    parking_area: float = 0.0,
+    other_kwh: float = 0.0,
+    kind: str = EUI_KIND_DEFAULT,
+) -> AreaUse:
+    """면적당 에너지와 지역 원단위 대비 배수.
+
+    area 는 **주차장을 뺀 뒤**의 연면적을 넣어 주십시오.
+    parking_area 는 화면에 "얼마를 뺐는지" 밝히려고 함께 받습니다.
+
+    **판정 문구는 붙이지 않습니다.** 구간을 그을 표본이 아직 없습니다.
+    50곳을 돌려 분포를 본 뒤에 넣습니다.
+    """
+    u = AreaUse(
+        region=region2 or "",
+        area=float(area or 0),
+        parking_area=float(parking_area or 0),
+        elec_kwh=float(elec_kwh or 0),
+        gas_kwh=float(gas_kwh or 0),
+        other_kwh=float(other_kwh or 0),
+    )
+    if u.area <= 0:
+        u.note = "연면적을 알 수 없어 면적당 값을 내지 못했습니다."
+        return u
+
+    u.elec_per = u.elec_kwh / u.area
+    u.base = eui_base(u.region, kind) or 0
+
+    heat = u.gas_kwh + u.other_kwh
+    if heat <= 0:
+        u.note = NO_HEAT_NOTE
+        return u
+
+    u.per = (u.elec_kwh + heat) / u.area
+    if not u.base:
+        u.note = "지역을 알 수 없어 원단위와 견주지 못했습니다."
+        return u
+
+    u.ratio = u.per / u.base
+    return u

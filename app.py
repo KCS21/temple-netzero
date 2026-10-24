@@ -22,6 +22,7 @@ import juso
 import keys
 import batch
 import portal
+import region
 import store
 import template_out as tpl
 
@@ -167,6 +168,7 @@ if picked:
         st.warning("건축물대장에 등록된 건물이 없습니다. 미등재 전각일 수 있으니 방문해서 확인해야 합니다.")
     else:
         s = bldrgst.summarize(dongs)
+        zones = bldrgst.restricted(jjg)
         st.markdown("#### 건물 정보")
         c1, c2, c3 = st.columns(3)
         c1.metric("동 수", f"{s['count']}동")
@@ -180,21 +182,52 @@ if picked:
             "구조": [d.strctCdNm or "-" for d in dongs],
             "지붕": [d.roofCdNm or "-" for d in dongs],
             "구분": [d.kind for d in dongs],
-            "태양광": ["후보" if d.solar_ok else "제외" for d in dongs],
+            "태양광": [bldrgst.solar_label(d, bool(zones)) for d in dongs],
         })
-        st.markdown(
-            f'<p class="hint">전통 {s["trad_count"]}동 {s["trad_area"]:,.0f} m² · '
-            f'신식 {s["modern_count"]}동 {s["modern_area"]:,.0f} m²'
-            + (f' · 주차 {recap["totPkngCnt"]}대' if recap and recap["totPkngCnt"] else "")
-            + "</p>", unsafe_allow_html=True)
+        bits = [f'전통 {s["trad_count"]}동 {s["trad_area"]:,.0f} m²']
+        if s["check_count"]:
+            bits.append(f'확인 필요 {s["check_count"]}동 {s["check_area"]:,.0f} m²')
+        bits.append(f'신식 {s["modern_count"]}동 {s["modern_area"]:,.0f} m²')
+        if s["parking_area"]:
+            bits.append(f'옥내 주차장 {s["parking_area"]:,.0f} m²')
+        if recap and recap["totPkngCnt"]:
+            bits.append(f'주차 {recap["totPkngCnt"]}대')
+        st.markdown('<p class="hint">' + " · ".join(bits) + "</p>",
+                    unsafe_allow_html=True)
+
+        # 참고 정보는 파란색, 손봐야 할 것은 노란색으로 나눕니다.
+        # 둘 다 노란색이면 모든 상자가 문제로 읽힙니다.
         if s["trad_count"]:
-            st.info("목조·기와 전각은 태양광 설치 대상에서 빠집니다. 구조와 지붕은 건축물대장 기준이므로 현장에서 확인해 주세요.")
+            st.info("목조 전각은 태양광 설치 대상에서 빠집니다. 구조와 지붕은 "
+                    "건축물대장 기준이므로 현장에서 확인해 주세요.")
+        if s["check_count"]:
+            st.info(
+                "**구조는 목재가 아닌데 지붕만 기와·초가인 동이 "
+                f"{s['check_count']}동** 있습니다." "  지붕에 판을 올릴 수 "
+                "있는 경우가 많아 「확인 필요」로 두었습니다. "
+                "현장에서 보고 정해 주세요."
+            )
+        if s["parking_area"]:
+            st.info(
+                f"연면적에 **옥내 주차장 {s['parking_area']:,.0f} m²** 가 "
+                "들어 있습니다. 면적당 에너지를 낼 때는 이것을 뺀 "
+                f"**{s['area_excl_parking']:,.0f} m²** 로 나눕니다. "
+                "통계의 원단위가 주차장을 뺀 연면적 기준이기 때문입니다."
+            )
 
         for m in bldrgst.checks(dongs, recap):
             st.warning(m)
         if jjg:
-            st.warning("용도지역·구역: " + " / ".join(jjg)
-                       + "\n\n규제 해당 여부는 관할 지자체 질의로만 확정됩니다.")
+            msg = "용도지역·구역: " + " / ".join(jjg)
+            if zones:
+                st.warning(
+                    msg + "\n\n**" + " · ".join(zones) + "** 이 걸려 있어 태양광은 "
+                    "「협의 필요」로 표시했습니다. **못 하는 것이 아니라 절차가 "
+                    "있는 것**입니다. 규제 해당 여부는 관할 지자체 질의로만 "
+                    "확정됩니다."
+                )
+            else:
+                st.info(msg + "\n\n규제 해당 여부는 관할 지자체 질의로만 확정됩니다.")
 
 
 # ═══════════ 3단계 — 개략 진단 ═══════════
@@ -257,14 +290,51 @@ if picked:
 
 이 사찰의 전기가 그쪽에 물려 있을 수 있습니다. 현장에서 고지서 주소를 확인해 주세요.""")
 
-            # 면적당 전기로 건축물대장 누락을 의심합니다.
+            # ── 면적당 에너지 — 그 지역 사찰 원단위와 견줍니다 ──
+            #
+            # 옛 방식(전기만 / 고정 200)은 폐기되었습니다. 통계의 원단위는
+            # 전기+가스 합을 **주차장 뺀 연면적**으로 나눈 **중간값**입니다.
             bld = st.session_state.bld
-            area, per, warn = 0.0, 0.0, ""
+            area = area_gross = 0.0
+            use = em.AreaUse()
             if bld and bld[0]:
-                area = bldrgst.summarize(bld[0])["total_area"]
-                per, warn = em.area_check(es["total"], area)
-                if warn:
-                    st.warning(warn)
+                ds0 = bldrgst.summarize(bld[0])
+                area_gross = ds0["total_area"]
+                area = ds0["area_excl_parking"]
+                use = em.area_use(
+                    es["total"], gs["total"], area,
+                    region.of(picked.jibunAddr),
+                    parking_area=ds0["parking_area"],
+                )
+            if use.area:
+                reg = region.label(picked.jibunAddr)
+                if use.has_ratio:
+                    st.markdown(
+                        f"**면적당 에너지 {use.per:,.0f} kWh/m²** — "
+                        f"{reg} 사찰 원단위 {use.base} 대비 "
+                        f"**{use.ratio:.2f}배**"
+                    )
+                    st.caption(em.EUI_NOTE + "  출처: " + em.EUI_SOURCE)
+                else:
+                    st.markdown(
+                        f"**전기만 {use.elec_per:,.0f} kWh/m²** — "
+                        f"배수는 내지 않았습니다. {use.note}"
+                    )
+                    if use.note == em.NO_HEAT_NOTE:
+                        st.warning(
+                            "**도시가스가 0 입니다.** 산중 사찰은 LPG·등유·화목으로 "
+                            "난방하는데 공개자료에는 그 연료가 없습니다. 분자에 난방이 "
+                            "통째로 빠지므로 배수를 내면 실제보다 낮게 나옵니다."
+                            + _NL + _NL +
+                            "위 전기 사용량은 **실제로 잰 값**입니다. 4단계에 LPG·등유를 "
+                            "넣으시면 그때 합산해 배수를 냅니다."
+                        )
+                st.caption(
+                    f"분모 {use.area:,.0f} m²"
+                    + (f" (연면적 {area_gross:,.0f} - 옥내 주차장 {use.parking_area:,.0f})"
+                       if use.parking_area else " (옥내 주차장 없음)")
+                    + " · 분자 " + em.EUI_NUMERATOR_NOTE
+                )
 
             if es["ratio"]:
                 st.markdown(
@@ -308,7 +378,9 @@ if picked:
                         "공개자료 배출량(t)": f"{r.subtotal_t:.2f}",
                         "전기(kWh)": f"{es['total']:.0f}",
                         "가스(kWh)": f"{gs['total']:.0f}",
-                        "면적당 전기(kWh/m2)": f"{per:.0f}" if per else "",
+                        "면적당 전기(kWh/m2)": (f"{use.per:,.0f}" if use.per
+                                                else (f"{use.elec_per:,.0f}"
+                                                      if use.elec_per else "")),
                         "난방부담 지표": f"{es['ratio']:.2f}" if es.get("ratio") else "",
                         "동수": str(ds.get("count", "")),
                         "연면적(m2)": f"{area:.1f}" if area else "",
@@ -316,7 +388,10 @@ if picked:
                         "신식 동수": str(ds.get("modern_count", "")),
                         "태양광 필요용량(kW)": f"{r.solar_kw:.0f}",
                         "신뢰도": lvl,
-                        "대장누락 의심": "예" if warn else "아니오",
+                        # 자동 판정을 멈췄습니다. 고정 200 기준이 없어졌고
+                        # 새 구간은 50곳 분포를 본 뒤에 긋습니다(지시 04 5번).
+                        # 사람이 손으로 채울 수 있게 칸은 남겨 둡니다.
+                        "대장누락 의심": "",
                         "제외된 자료(건)": str(data.get("dropped", 0)),
                         "전력 기준": r.elec_basis,
                         "도시가스 기준": r.gas_basis,
@@ -377,6 +452,30 @@ if picked and st.session_state.diag:
     kero = f2.number_input("등유 (L)", min_value=0.0, value=0.0, step=10.0)
     gaso = f3.number_input("휘발유 (L)", min_value=0.0, value=0.0, step=10.0)
     dies = f4.number_input("경유 (L)", min_value=0.0, value=0.0, step=10.0)
+
+    # 도시가스가 0 이라 3단계에서 배수를 못 냈던 사찰도, 여기에 난방 연료를
+    # 넣으면 그때 배수를 냅니다(지시 04 3번).
+    # **휘발유·경유는 더하지 않습니다.** 차량 연료라 건물 에너지가 아닙니다.
+    _bld = st.session_state.bld
+    if _bld and _bld[0] and gs["total"] <= 0 and (lpg > 0 or kero > 0):
+        _ds = bldrgst.summarize(_bld[0])
+        _heat = (em.fuel_kwh("LPG-프로판(LPG1호)", lpg)
+                 + em.fuel_kwh("등유(Kerosene)", kero))
+        _u = em.area_use(
+            es["total"], 0.0, _ds["area_excl_parking"],
+            region.of(picked.jibunAddr),
+            parking_area=_ds["parking_area"], other_kwh=_heat,
+        )
+        if _u.has_ratio:
+            st.success(
+                f"현장 조사값을 더해 배수를 냈습니다 — 면적당 에너지 "
+                f"**{_u.per:,.0f} kWh/m²**, {region.label(picked.jibunAddr)} 사찰 "
+                f"원단위 {_u.base} 대비 **{_u.ratio:.2f}배**"
+                + _NL + _NL +
+                f"난방 연료 {_heat:,.0f} kWh 를 전기 {es['total']:,.0f} kWh 에 "
+                "더한 값입니다. 차량 연료(휘발유·경유)는 건물 에너지가 아니라 "
+                "빼고 셈했습니다."
+            )
 
     if st.button("엑셀 서식 만들기", width="stretch"):
         extra = []

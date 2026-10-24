@@ -60,18 +60,54 @@ class Dong:
     raw: dict = field(default_factory=dict, repr=False)
 
     @property
-    def is_traditional(self) -> bool:
+    def kind(self) -> str:
+        """전통 / 확인 필요 / 신식 **세 갈래**입니다.
+
+        예전에는 목구조든 기와지붕이든 하나만 걸리면 「전통」으로 보고
+        태양광 후보에서 빼 버렸습니다. 그런데 **철근콘크리트로 지어 놓고
+        지붕만 기와를 얹은 전각**이 흔합니다. 그런 동은 지붕에 판을 올릴
+        수 있는데도 자동으로 빠졌습니다.
+
+        구조가 목재면 전통, 구조는 아닌데 지붕만 전통 재료면 **현장에서
+        판단**하도록 세 번째 갈래로 둡니다(CLAUDE.md 2장).
+        """
         s, r = self.strctCdNm or "", self.roofCdNm or ""
-        return any(k in s for k in TRAD_STRCT) or any(k in r for k in TRAD_ROOF)
+        if any(k in s for k in TRAD_STRCT):
+            return "전통"
+        if any(k in r for k in TRAD_ROOF):
+            return "확인 필요"
+        return "신식"
 
     @property
-    def kind(self) -> str:
-        return "전통" if self.is_traditional else "신식"
+    def is_traditional(self) -> bool:
+        return self.kind == "전통"
+
+    @property
+    def needs_check(self) -> bool:
+        """구조는 목재가 아닌데 지붕만 기와·초가·너와."""
+        return self.kind == "확인 필요"
 
     @property
     def solar_ok(self) -> bool:
-        """옥상 태양광 후보가 될 수 있는지에 대한 1차 판단."""
+        """옥상 태양광 후보가 될 수 있는지에 대한 1차 판단.
+
+        「확인 필요」는 빼지 않습니다. 현장에서 보고 정할 일입니다.
+        """
         return not self.is_traditional and self.totArea > 0
+
+    @property
+    def indr_parking(self) -> float:
+        """연면적에 **들어 있는** 주차장 면적(옥내 기계식 + 옥내 자주식).
+
+        원단위 통계의 분모는 주차장을 뺀 연면적입니다(통계집 3쪽·8쪽).
+
+        **옥외는 빼지 않습니다.** 옥외 주차장은 건물이 아니라 애초에
+        연면적에 들어가지 않습니다. 넷을 다 빼면 분모가 두 번 깎여
+        배수가 부풀어 오릅니다. 실제로 수국사에 oudrAutoArea 184 m² 가
+        있어서, 넷을 다 뺐으면 분모가 7% 잘못 깎였을 것입니다.
+        """
+        return (portal.num(self.raw.get("indrMechArea"))
+                + portal.num(self.raw.get("indrAutoArea")))
 
     @property
     def is_religious(self) -> bool:
@@ -173,19 +209,65 @@ def fetch_jijigu(sigunguCd, bjdongCd, bun, ji, service_key,
     return names
 
 
+# 사찰에 있을 까닭이 없는 주용도. 이런 것이 섞여 있으면 지번이 어긋났거나
+# 남의 건물이 함께 잡힌 것입니다.
+#
+# **종교시설이 "없을 때" 경고하면 안 됩니다.** 건축법 시행령 별표1 에서
+# 종교집회장은 **500m2 미만이면 제2종근린생활시설**입니다. 337m2 짜리 작은
+# 절은 정상인데 경고를 받았습니다. 요사채가 단독주택으로 잡히는 것도
+# 마찬가지입니다. 그래서 없을 때가 아니라 **이상한 것이 있을 때** 경고합니다.
+ODD_PURPOSES = ("공장", "판매시설", "위험물", "자동차관련", "발전시설",
+                "운수시설", "창고시설", "위락시설", "숙박시설")
+
+# 태양광을 못 하는 것이 아니라 절차가 있는 곳. 후보에서 빼지 않습니다.
+RESTRICTED_ZONES = ("개발제한구역", "보전녹지", "제한보호구역")
+
+
+def restricted(jijigu: Optional[List[str]]) -> List[str]:
+    """용도지역·구역 목록에서 태양광 협의가 필요한 것만 추립니다."""
+    if not jijigu:
+        return []
+    return [z for z in jijigu if any(k in z for k in RESTRICTED_ZONES)]
+
+
+def solar_label(d: Dong, has_restriction: bool = False) -> str:
+    """표의 「태양광」 칸에 적을 한 마디.
+
+    규제 구역이라고 후보에서 빼지 않습니다. **못 하는 것이 아니라 절차가
+    있는 것**입니다(관할 지자체 질의로만 확정됩니다).
+    """
+    if d.is_traditional or d.totArea <= 0:
+        return "제외"
+    if d.needs_check:
+        return "확인 필요"
+    return "협의 필요" if has_restriction else "후보"
+
+
 def summarize(dongs: List[Dong]) -> dict:
     """동 목록에서 사찰 진단에 필요한 것만 뽑습니다."""
     trad = [d for d in dongs if d.is_traditional]
-    modern = [d for d in dongs if not d.is_traditional]
+    check = [d for d in dongs if d.needs_check]
+    modern = [d for d in dongs if d.kind == "신식"]
+    total_area = sum(d.totArea for d in dongs)
+    parking = sum(d.indr_parking for d in dongs)
     return {
         "count": len(dongs),
-        "total_area": sum(d.totArea for d in dongs),
+        "total_area": total_area,
+        # 원단위 분모. 주차장을 뺀 연면적입니다(통계집 3쪽·8쪽).
+        "parking_area": parking,
+        "area_excl_parking": max(total_area - parking, 0.0),
         "trad_count": len(trad),
         "trad_area": sum(d.totArea for d in trad),
+        "check_count": len(check),
+        "check_area": sum(d.totArea for d in check),
         "modern_count": len(modern),
         "modern_area": sum(d.totArea for d in modern),
         "purposes": sorted({d.mainPurpsCdNm for d in dongs if d.mainPurpsCdNm}),
         "religious_count": sum(1 for d in dongs if d.is_religious),
+        "odd_purposes": sorted({
+            d.mainPurpsCdNm for d in dongs
+            if d.mainPurpsCdNm and any(k in d.mainPurpsCdNm for k in ODD_PURPOSES)
+        }),
         "unnamed_count": sum(1 for d in dongs if not (d.dongNm or d.bldNm)),
         "oldest": min((d.useAprDay for d in dongs if d.useAprDay), default=""),
     }
@@ -210,8 +292,14 @@ def checks(dongs: List[Dong], recap: Optional[dict] = None) -> List[str]:
             "목조·기와 전각이 한 동도 잡히지 않았습니다. 전통 전각은 건축물대장에 "
             "빠져 있는 경우가 많습니다. 대웅전·법당이 실제로 있는지 현장에서 확인해 주세요."
         )
-    if s["religious_count"] == 0:
-        msgs.append("주용도가 종교시설인 건물이 없습니다. 지번이 맞는지 다시 확인해 주세요.")
+    # 종교시설이 **없다고** 경고하지 않습니다(2026-10-24 뒤집음).
+    # 종교집회장은 500m2 미만이면 제2종근린생활시설이고, 요사채는 단독주택으로
+    # 잡힙니다. 작은 절이 정상인데 경고를 받던 문제였습니다.
+    if s["odd_purposes"]:
+        msgs.append(
+            f"사찰에 있기 어려운 용도가 섞여 있습니다: {' · '.join(s['odd_purposes'])}. "
+            "지번이 맞는지, 남의 건물이 함께 잡힌 것은 아닌지 확인해 주세요."
+        )
     if s["unnamed_count"]:
         msgs.append(
             f"동 이름이 비어 있는 건물이 {s['unnamed_count']}동 있습니다. "

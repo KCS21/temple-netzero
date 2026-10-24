@@ -20,3 +20,6 @@ __pycache__/
 .claude/skills/
 .claude/launch.json
 원단위_배수.csv
+# 돌리기 전에 떠 두는 사본. 조회 결과가 들어 있습니다
+사찰기록_백업_*.csv
+원단위_배수_백업_*.csv

@@ -25,6 +25,7 @@ from typing import List, Tuple
 
 import requests
 
+import keys            # bad_key - 보내기 전에 키를 봅니다
 import portal          # hide_keys
 
 URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
@@ -99,6 +100,19 @@ def search(keyword: str, rest_key: str, pages: int = MAX_PAGES
         raise KakaoError("찾을 말을 넣어 주세요.")
     if not rest_key:
         raise KakaoError("카카오 키가 없습니다.")
+
+    # **보내기 전에 봅니다.** 이 키는 HTTP 헤더에 실리는데 헤더는 영문만
+    # 담을 수 있어서, 값에 한글이 섞이면 requests 가 보내기도 전에
+    # UnicodeEncodeError 로 터집니다. 실제로 배포판에서 이 단추를 누르자
+    # **화면 전체가 죽었습니다**(2026-10-24). 비밀 보관함에 값을 넣으면서
+    # 한글이 딸려 들어간 것이었습니다.
+    why = keys.bad_key(rest_key)
+    if why:
+        raise KakaoError(
+            "카카오 키 값이 잘못 들어갔습니다. " + why + _NL + _NL +
+            "**영문·숫자만 넣어 주세요.** 키.txt 의 `카카오=` 줄, "
+            "웹에 올리셨으면 Streamlit 비밀 보관함을 보십시오." + _NL + _NL +
+            "**그동안 주소로 찾기는 그대로 됩니다.**")
 
     out: List[Place] = []
     total = 0

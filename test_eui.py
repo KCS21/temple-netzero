@@ -14,6 +14,7 @@
   - 종교시설이 없다고 경고하지 않는지
 """
 import bldrgst
+import keys
 import emissions as em
 import region
 
@@ -334,6 +335,38 @@ def main() -> int:
     ok("다섯 경우 모두 일치", not bad, " / ".join(bad))
 
     print()
+    # 키에 한글이 섞이면 카카오 요청이 보내기도 전에 UnicodeEncodeError 로
+    # 터집니다(헤더는 영문만 담습니다). 배포판에서 화면 전체가 죽었습니다.
+    print("  [14] 인증키 글자 검사 (keys.bad_key)")
+    good = [
+        ("카카오 32자", "e36bb0085fd4d6c72da0696aaff24d0b"),
+        ("도로명주소 = 로 끝남", "devU01TX0FVVEgyMDI2MDkxNDIwMjgxNjEyMDM4MjQ="),
+        ("앞뒤 빈칸은 떼고 본다", "  abc123  "),
+    ]
+    for name, v in good:
+        ok(f"통과해야 함 - {name}", keys.bad_key(v) == "", repr(v[:14]))
+    bad = [
+        ("한글이 섞임 (실제 사고)", "카카오e36bb0085fd4d6c72da0696aaff24d0b"),
+        ("이름만 들어감", "카카오"),
+        ("가운데 빈칸", "abc 123"),
+        ("따옴표가 남음", chr(34) + "abc123" + chr(34)),
+        ("비었음", ""),
+    ]
+    for name, v in bad:
+        ok(f"막아야 함 - {name}", keys.bad_key(v) != "", keys.bad_key(v)[:40])
+
+    # 지도 검색은 **보내기 전에** 막아야 합니다. 화면이 죽으면 안 됩니다.
+    import kakao
+    try:
+        kakao.search("원오사", "카카오e36bb0085fd4d6c72da0696aaff24d0b")
+        ok("나쁜 키로 지도 검색 -> 막힘", False, "안 막혔습니다")
+    except kakao.KakaoError as e:
+        ok("나쁜 키로 지도 검색 -> KakaoError", "영문·숫자만" in str(e))
+    except Exception as e:
+        ok("나쁜 키로 지도 검색 -> KakaoError", False,
+           f"다른 오류가 샘: {type(e).__name__}")
+    print()
+
     print(LINE)
     if _fail:
         print(f"  {_fail}개 실패.")

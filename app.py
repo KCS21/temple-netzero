@@ -143,9 +143,18 @@ def _kakao_block():
             try:
                 st.session_state.places = kakao.search(kw, KAKAO_KEY)[0]
                 st.session_state.places_err = ""
-            except kakao.KakaoError as e:
+            except Exception as e:
+                # **어떤 오류가 나도 지도 칸에서 끝냅니다.** 지도 검색은
+                # 있으면 좋은 것이지 없으면 안 되는 것이 아닙니다. 예전에
+                # 키에 한글이 섞여 UnicodeEncodeError 가 났을 때 **화면
+                # 전체가 죽었습니다**(2026-10-24). 주소 검색은 그대로
+                # 돌아야 합니다.
                 st.session_state.places = []
-                st.session_state.places_err = str(e)
+                st.session_state.places_err = (
+                    str(e) if isinstance(e, kakao.KakaoError) else
+                    "지도 검색이 되지 않습니다." + _NL + _NL +
+                    "**주소로 찾기는 그대로 쓸 수 있습니다.** "
+                    f"({portal.hide_keys(e)})")
 
         if st.session_state.get("places_err"):
             st.warning(st.session_state.places_err)

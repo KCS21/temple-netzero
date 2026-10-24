@@ -18,12 +18,61 @@ from __future__ import annotations
 import io
 import os
 
+NL = chr(10)            # 줄바꿈 (백슬래시 escape 를 쓰지 않습니다)
 KEY_FILE = "키.txt"
 CONFM = "도로명주소"
 SERVICE = "공공데이터포털"
 KAKAO = "카카오"          # 지도에서 절 이름 찾기. **없어도 도구는 돕니다**
 
 TEMPLATE = f"{CONFM}=\n{SERVICE}=\n"
+
+
+# 키에 쓰일 수 있는 글자. 영문·숫자에 더해, base64 와 URL 인코딩에 나오는
+# 기호까지만 엽니다. 실제 키 셋을 보면 도로명주소가 `=` 로 끝나고 나머지는
+# 영문·숫자뿐입니다.
+_KEY_OK = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+              "abcdefghijklmnopqrstuvwxyz"
+              "0123456789"
+              "-_=+/.%~")
+
+
+def bad_key(value: str) -> str:
+    """키 값이 성하면 빈 문자열, 이상하면 **까닭**을 돌려줍니다.
+
+    **왜 미리 보는가** — 카카오 키는 HTTP 헤더에 실립니다. 헤더는 영문만
+    담을 수 있어서, 값에 한글이 섞이면 `requests` 가 보내기도 전에
+    UnicodeEncodeError 로 터집니다. 실제로 배포판에서 「지도에서 찾기」를
+    누르자 **화면 전체가 죽었습니다**(2026-10-24).
+
+    도로명주소·공공데이터포털 키는 질의 문자열이라 터지지는 않지만, 대신
+    「승인되지 않은 KEY」 같은 **엉뚱한 안내**로 되돌아옵니다. 어느 쪽이든
+    사람은 무엇이 잘못됐는지 알 수 없습니다. 보내기 전에 걸러 냅니다.
+    """
+    v = (value or "").strip()
+    if not v:
+        return "값이 비어 있습니다."
+    if any(not c.isascii() for c in v):
+        return ("한글 같은 영문 아닌 글자가 섞여 있습니다. "
+                "이름 칸의 글자가 값 칸에 딸려 들어갔을 수 있습니다.")
+    bad = sorted({c for c in v if c not in _KEY_OK})
+    if bad:
+        shown = " ".join(("빈칸" if c == " " else c) for c in bad[:5])
+        return f"키에 쓰이지 않는 글자가 있습니다: {shown}"
+    return ""
+
+
+def _checked(name: str, value: str, folder: str) -> str:
+    """키를 검사해 그대로 돌려줍니다. 이상하면 다음 행동을 붙여 멈춥니다."""
+    why = bad_key(value)
+    if not why:
+        return value
+    raise KeyError_(
+        f"**{name} 키 값이 잘못 들어갔습니다.** {why}" + NL + NL +
+        "**영문·숫자만 넣어 주세요.** "
+        "(도로명주소 키는 끝에 = 가 올 수 있습니다)" + NL + NL +
+        f"고치실 곳: {path(folder)} "
+        "— 웹에 올리셨으면 Streamlit 비밀 보관함입니다."
+    )
 
 
 class KeyError_(Exception):
@@ -88,7 +137,8 @@ def load(folder: str = "") -> tuple:
     """
     confm, service = _from_secrets()
     if confm and service:
-        return confm, service
+        return (_checked(CONFM, confm, folder),
+                _checked(SERVICE, service, folder))
 
     p = path(folder)
     if not os.path.exists(p):
@@ -109,7 +159,8 @@ def load(folder: str = "") -> tuple:
             f"`{KEY_FILE}` 에서 {' 과 '.join(missing)} 키를 찾지 못했습니다.\n\n"
             + guide(folder)
         )
-    return confm, service
+    return (_checked(CONFM, confm, folder),
+            _checked(SERVICE, service, folder))
 
 
 def kakao(folder: str = "") -> str:

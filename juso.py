@@ -121,13 +121,18 @@ class Juso:
         return msgs
 
 
+# 지번처럼 생긴 낱말 — 「산162」 「73」 「375-3」
+_LOT = re.compile(r"^산?\d+(-\d+)?$")
+
 SIBLING_SRC = "옆 지번에서 고름"
 
 
 def jibun_text(bun, ji, mountain: bool = False) -> str:
     """본번·부번을 사람이 읽는 지번으로. 부번이 0 이면 본번만."""
     b, j = int(str(bun) or 0), int(str(ji) or 0)
-    return ("산 " if mountain else "") + (f"{b}-{j}" if j else f"{b}")
+    # 도로명주소는 「산162」처럼 **붙여** 씁니다. 띄우면 주소 문자열이
+    # 「상계동 58-53 산 154-1」처럼 깨집니다(2026-10-24).
+    return ("산" if mountain else "") + (f"{b}-{j}" if j else f"{b}")
 
 
 def sibling(base: "Juso", bun, ji, inherit_name: bool = True) -> "Juso":
@@ -145,10 +150,14 @@ def sibling(base: "Juso", bun, ji, inherit_name: bool = True) -> "Juso":
     (CLAUDE.md 2장 「모르는 것은 모른다고 표시한다」).
     """
     mt = str(base.mtYn).strip() == "1"
-    here = jibun_text(base.lnbrMnnm, base.lnbrSlno, mt)
-    head = base.jibunAddr
-    at = head.find(here)
-    dong = head[:at].rstrip() if at > 0 else head.rsplit(" ", 1)[0]
+    # **지번처럼 생긴 첫 낱말 앞까지**가 동 이름입니다.
+    #
+    # 예전에는 기준 지번 글자를 찾아 그 앞을 썼는데, 못 찾으면 맨 뒤
+    # 한 덩이만 떼었습니다. 기준 주소에 건물명이 붙어 있으면
+    # 「상계동 58-53 산154-1」처럼 **앞 지번이 남았습니다**.
+    toks = base.jibunAddr.split()
+    cut = next((i for i, w in enumerate(toks) if _LOT.match(w)), len(toks))
+    dong = " ".join(toks[:cut])
     return Juso(
         jibunAddr=f"{dong} {jibun_text(bun, ji, mt)}",
         roadAddr="",

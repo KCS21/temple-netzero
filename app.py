@@ -106,7 +106,7 @@ for k, v in [("rows", []), ("total", 0), ("page", 1), ("kw", ""),
 # ═══════════ 1단계 — 주소 찾기 ═══════════
 st.title("사찰 주소 찾기")
 st.markdown('<p class="hint"><b>주소 또는 절 이름</b>을 넣어 주세요. '
-            "예: 구산동 314 · 봉은사<br>"
+            "예: 구산동 314 · 절 이름<br>"
             "절 이름으로 찾은 것에는 <b>(이름으로 찾음)</b> 표시가 붙습니다. "
             "<b>주소가 맞는지 꼭 확인해 주세요.</b> 같은 이름의 다른 절이 흔합니다."
             "</p>", unsafe_allow_html=True)
@@ -181,7 +181,7 @@ def _kakao_block():
 with st.form("search"):
     c1, c2 = st.columns([4, 1])
     keyword = c1.text_input("주소", value=st.session_state.kw,
-                            placeholder="예: 구산동 314  또는  봉은사",
+                            placeholder="예: 구산동 314  또는  절 이름",
                             label_visibility="collapsed")
     submitted = c2.form_submit_button("찾기", width="stretch")
 
@@ -263,8 +263,9 @@ def _sibling_block(j, year):
     """
     p = j.building_params()
     st.markdown('<p class="hint">절이 <b>여러 지번에 걸쳐</b> 있고 전기가 '
-                "그중 <b>한 지번으로만</b> 들어오는 일이 있습니다. "
-                "원오사는 법당(375)에 자료가 없고 숙소(375-3)에 있었습니다.</p>",
+                "그중 <b>한 지번으로만</b> 들어오는 일이 있습니다.<br>"
+                "<b>전기 자료가 없는 지번이 있으면</b> 같은 번지의 다른 "
+                "지번도 찾아보세요.</p>",
                 unsafe_allow_html=True)
     if st.button(f"같은 번지({int(p['bun'])})의 다른 지번도 찾아보기",
                  key="sib_go", width="stretch"):
@@ -306,8 +307,8 @@ def _sibling_block(j, year):
         "사용승인일": [sibs[k]["사용승인일"] or "-" for k in keys_],
         "동수": [f'{sibs[k]["동수"]}동' for k in keys_],
     })
-    st.caption("주용도는 **건축물대장 기준**입니다. 법당이 단독주택으로, "
-               "숙소가 근린생활시설로 올라가 있기도 합니다(원오사). "
+    st.caption("주용도는 **건축물대장 기준**입니다. 절의 건물이 "
+               "단독주택이나 근린생활시설로 올라가 있기도 합니다. "
                "주용도를 보고 전각 이름을 짐작하지 마십시오.")
     pick = st.radio("지번 선택", options=keys_,
                     format_func=lambda k: f'{sibs[k].get("표시") or sibs[k]["지번"]}'

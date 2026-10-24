@@ -22,12 +22,18 @@ from openpyxl import load_workbook
 
 import emissions as em
 
-TEMPLATE_NAME = "서식_온실가스_배출량_산정_템플릿.xlsx"
+# 지수광풍판 — 작업지시 06 으로 개정한 서식입니다.
+# 구판은 `..._구판.xlsx` 로 남겨 두었습니다(옛 결과를 다시 볼 일이 있으면).
+TEMPLATE_NAME = "서식_온실가스_배출량_산정_템플릿_지수광풍판.xlsx"
+TEMPLATE_BLANK = "서식_온실가스_배출량_산정_템플릿_지수광풍판_빈서식.xlsx"
 
 SH_FIXED = "③Scope1_고정연소"
 SH_MOBILE = "④Scope1_이동연소"
 SH_POWER = "⑤Scope2_전력"
 SH_SUM = "⑥종합요약"
+SH_INFO = "⓪기본정보"
+BIO_COL = 20                  # ③ 의 생물기원 CO2 열 (T). 합계에 안 들어갑니다
+SOLAR_ROWS = (21, 22)         # ⑤ 의 자가 태양광 발전량 / 자가소비량
 
 FIXED_ROWS = range(8, 16)     # 8칸
 MOBILE_ROWS = range(8, 15)    # 7칸
@@ -42,7 +48,9 @@ class Activity:
     """템플릿에 넣을 활동량 한 줄.
 
     같은 연료라도 보일러에 쓰면 고정연소, 차량에 쓰면 이동연소입니다.
-    계수는 같지만 들어갈 시트가 다릅니다(템플릿 ④시트 주석 참조).
+    **계수도 다릅니다**(2026-10-24 개정). 고정연소는 별표10 상업·공공 열에
+    별표6 산화계수, 도로는 별표6 <표-4> 에 산화계수 항이 없습니다.
+    들어갈 시트도 다릅니다(③ / ④).
     scope 를 비워 두면 흔한 쓰임으로 정합니다.
     """
 
@@ -52,16 +60,20 @@ class Activity:
     note: str = ""
 
     def __post_init__(self):
-        if self.fuel not in em.FUELS:
-            raise TemplateError(f"참조표에 없는 연료입니다: {self.fuel}")
         if not self.scope:
-            self.scope = em.FUELS[self.fuel].default_scope
+            src = em.FUELS.get(self.fuel) or em.ROAD.get(self.fuel)
+            if src is None:
+                raise TemplateError(f"참조표에 없는 연료입니다: {self.fuel}")
+            self.scope = src.default_scope
         if self.scope not in ("고정연소", "이동연소"):
             raise TemplateError(f"고정연소 또는 이동연소여야 합니다: {self.scope}")
+        if self.fuel not in em.table_for(self.scope):
+            where = "도로 이동연소" if self.scope == "이동연소" else "고정연소"
+            raise TemplateError(f"{where} 참조표에 없는 연료입니다: {self.fuel}")
 
     @property
     def unit(self) -> str:
-        return em.FUELS[self.fuel].unit
+        return em.table_for(self.scope)[self.fuel].unit
 
 
 def find_template(folder: str = "") -> str:
@@ -82,13 +94,22 @@ def _write_rows(ws, rows: Sequence[int], items: List[Activity], label: str) -> N
             f"{label} 칸이 {len(rows)}개인데 {len(items)}개를 넣으려 합니다. "
             "템플릿에서 행을 늘린 뒤 다시 해주세요."
         )
+    bio = label == "고정연소"
     for i, r in enumerate(rows):
         if i < len(items):
-            ws.cell(row=r, column=2).value = items[i].fuel    # B 연료명
-            ws.cell(row=r, column=4).value = items[i].qty     # D 활동량
+            a = items[i]
+            ws.cell(row=r, column=2).value = a.fuel           # B 연료명
+            ws.cell(row=r, column=4).value = a.qty            # D 활동량
+            if bio:
+                # 생물기원 CO2 는 합계에 넣지 않고 따로 적습니다(고시 제18조).
+                b = em.burn(a.fuel, a.qty, a.scope)
+                ws.cell(row=r, column=BIO_COL).value = (
+                    round(b.bio_co2_kg, 1) if b.bio_co2_kg else None)
         else:
             ws.cell(row=r, column=2).value = None
             ws.cell(row=r, column=4).value = None
+            if bio:
+                ws.cell(row=r, column=BIO_COL).value = None
 
 
 def fill(
@@ -100,6 +121,10 @@ def fill(
     renewable_kwh: float = 0.0,
     template_path: Optional[str] = None,
     note: str = "",
+    road_addr: str = "",
+    jibun_addr: str = "",
+    solar_kwh: float = 0.0,
+    solar_self_kwh: float = 0.0,
 ) -> str:
     """템플릿 사본을 만들어 활동량을 채워 넣습니다. 만들어진 파일 경로를 돌려줍니다."""
     src = template_path or find_template()
@@ -119,8 +144,17 @@ def fill(
     ws = wb[SH_POWER]
     ws["D7"] = float(elec_kwh or 0)
     ws["D10"] = float(renewable_kwh or 0)
+    ws.cell(SOLAR_ROWS[0], 4).value = float(solar_kwh or 0) or None
+    ws.cell(SOLAR_ROWS[1], 4).value = float(solar_self_kwh or 0) or None
 
     stamp = dt.date.today().strftime("%Y. %m. %d.")
+    if SH_INFO in wb.sheetnames:
+        info = wb[SH_INFO]
+        info["C5"] = temple
+        info["C6"] = road_addr
+        info["C7"] = jibun_addr
+        info["C8"] = f"{year}년 사용량"
+        info["C9"] = stamp
     tail = f"  |  {note}" if note else ""
     wb[SH_SUM]["B4"] = (
         f"대상: {temple}  |  기준연도: {year}년  |  작성일: {stamp}{tail}"
@@ -166,13 +200,15 @@ def preview(elec_kwh: float, activities: Sequence[Activity],
     """템플릿이 낼 값을 미리 계산해 화면에 보여줍니다. (엑셀 없이 확인용)"""
     rows = []
     s1 = 0.0
+    bio = 0.0          # 생물기원 CO2 — 합계에 넣지 않고 따로 보여 줍니다
     for a in activities:
-        b = em.burn(a.fuel, a.qty)
+        b = em.burn(a.fuel, a.qty, a.scope)
         t = b.ar5_t if gwp == "AR5" else b.ar6_t
         s1 += t
+        bio += b.bio_co2_kg
         rows.append({"연료": a.fuel, "구분": a.scope, "활동량": f"{a.qty:,.1f} {a.unit}",
                      "발열량": f"{b.hv} MJ/{b.unit}", "TJ": f"{b.tj:.6f}",
                      "배출량": f"{t:.3f} t", "산식": b.formula(gwp)})
     s2 = em.power_t(elec_kwh, elec_basis)
     return {"rows": rows, "scope1_t": s1, "scope2_t": s2, "total_t": s1 + s2,
-            "elec_basis": elec_basis, "gwp": gwp}
+            "bio_co2_kg": bio, "elec_basis": elec_basis, "gwp": gwp}

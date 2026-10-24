@@ -260,13 +260,78 @@ def main() -> int:
        em.FUELS["LPG-프로판(LPG1호)"].ch4 == 5
        and em.FUELS["LPG-부탄(LPG3호)"].ch4 == 5)
     ok("등유 CH4 10", em.FUELS["등유(Kerosene)"].ch4 == 10)
-    ok("경유는 그대로 3 (이동연소 전용)", em.FUELS["경유(Diesel)"].ch4 == 3)
-    ok("휘발유는 그대로 3 (이동연소)", em.FUELS["휘발유(Gasoline)"].ch4 == 3)
+    # 2026-10-24 (작업지시 06) 에 경유도 고정연소는 10 이 되었습니다.
+    # 차량용 3.9 는 ROAD 표에 따로 있습니다. [11] 에서 확인합니다.
+    ok("경유 고정연소도 상업·공공 10", em.FUELS["경유(Diesel)"].ch4 == 10)
     ok("N2O 는 넷 다 안 바뀜",
        em.FUELS["도시가스/LNG"].n2o == 0.1 and em.FUELS["등유(Kerosene)"].n2o == 0.6)
     g = em.burn("도시가스/LNG", 17127.4).ar5_t
     ok("수국사 도시가스 17,127.4 Nm3 = 37.30 t", abs(g - 37.30) < 0.01,
        f"{g:.3f} t")
+
+    # ── 10. 작업지시 06 — 산화계수·도로표·화목 ──
+    print()
+    print("  [10] 산화계수 (별표6 — 고체 0.98 / 기체 0.995 / 액체 0.99)")
+    ok("도시가스·LPG 는 기체 0.995",
+       em.FUELS["도시가스/LNG"].oxid == 0.995
+       and em.FUELS["LPG-프로판(LPG1호)"].oxid == 0.995
+       and em.FUELS["LPG-부탄(LPG3호)"].oxid == 0.995)
+    ok("등유·경유는 액체 0.99 (고정연소)",
+       em.FUELS["등유(Kerosene)"].oxid == 0.99
+       and em.FUELS["경유(Diesel)"].oxid == 0.99)
+    ok("도로는 산화계수 항이 없어 1.0",
+       all(f.oxid == 1.0 for f in em.ROAD.values()))
+
+    print()
+    print("  [11] 이동연소(도로) 전용 표 — 별표6 <표-4>")
+    ok("휘발유 CH4 25 · N2O 8.0",
+       em.ROAD["휘발유(Gasoline)"].ch4 == 25
+       and em.ROAD["휘발유(Gasoline)"].n2o == 8.0)
+    ok("경유 CH4 3.9 · N2O 3.9",
+       em.ROAD["경유(Diesel)"].ch4 == 3.9
+       and em.ROAD["경유(Diesel)"].n2o == 3.9)
+    ok("LPG 부탄 CH4 62 · N2O 0.2",
+       em.ROAD["LPG-부탄(LPG3호)"].ch4 == 62
+       and em.ROAD["LPG-부탄(LPG3호)"].n2o == 0.2)
+    ok("CO2·발열량은 별표12 그대로 (표-4 의 Tier1 값이 아님)",
+       em.ROAD["경유(Diesel)"].co2 == 73200
+       and em.ROAD["휘발유(Gasoline)"].co2 == 71600)
+    ok("같은 경유라도 쓰임에 따라 값이 다름",
+       round(em.burn("경유(Diesel)", 1000, "고정연소").ar5_t, 4)
+       != round(em.burn("경유(Diesel)", 1000, "이동연소").ar5_t, 4),
+       f'고정 {em.burn("경유(Diesel)", 1000, "고정연소").ar5_t:.4f}'
+       f' / 도로 {em.burn("경유(Diesel)", 1000, "이동연소").ar5_t:.4f}')
+    bad = ""
+    try:
+        em.burn("등유(Kerosene)", 1, "이동연소")
+        bad = "막지 못함"
+    except em.EmissionError:
+        pass
+    ok("도로 표에 없는 연료는 막는다", not bad, bad)
+
+    print()
+    print("  [12] 화목 — 생물기원 CO2 는 합계에서 뺀다 (고시 제18조)")
+    b = em.burn("화목(장작)", 1000)
+    ok("발열량 15.6 MJ/kg (별표11)", em.FUELS["화목(장작)"].hv == 15.6)
+    ok("CH4 300 · N2O 4 (별표10 상업·공공)",
+       em.FUELS["화목(장작)"].ch4 == 300 and em.FUELS["화목(장작)"].n2o == 4.0)
+    ok("산화계수 1.0 (CO2 가 Tier 1 이므로)",
+       em.FUELS["화목(장작)"].oxid == 1.0)
+    ok("생물기원 CO2 1,747 kg", round(b.bio_co2_kg) == 1747, f"{b.bio_co2_kg:,.1f}")
+    ok("합계에 CO2 가 안 들어감", b.co2_kg == 0.0)
+    ok("CH4·N2O 만 합계에 = 0.148 t", abs(b.ar5_t - 0.148) < 0.001,
+       f"{b.ar5_t:.3f} t")
+
+    print()
+    print("  [13] 작업지시 06 E 검증표")
+    cases = [("휘발유(Gasoline)", 1750, "이동연소", 3.959),
+             ("경유(Diesel)", 2400, "이동연소", 6.280),
+             ("LPG-프로판(LPG1호)", 1000, "고정연소", 2.984),
+             ("도시가스/LNG", 17127.4, "고정연소", 37.301),
+             ("등유(Kerosene)", 1000, "고정연소", 2.493)]
+    bad = [f"{f} {em.burn(f, q, sc).ar5_t:.3f}!={w}"
+           for f, q, sc, w in cases if abs(em.burn(f, q, sc).ar5_t - w) > 0.002]
+    ok("다섯 경우 모두 일치", not bad, " / ".join(bad))
 
     print()
     print(LINE)

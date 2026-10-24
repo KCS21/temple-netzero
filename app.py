@@ -482,20 +482,37 @@ if picked and st.session_state.diag:
 
     st.markdown('<p class="hint"><b>현장 조사값</b> — 방문해서 확인한 값만 넣으세요. '
                 "모르면 비워 두시면 됩니다(0).</p>", unsafe_allow_html=True)
-    f1, f2, f3, f4 = st.columns(4)
+    f1, f2, f3, f4, f5 = st.columns(5)
     lpg = f1.number_input("LPG-프로판 (kg)", min_value=0.0, value=0.0, step=10.0)
     kero = f2.number_input("등유 (L)", min_value=0.0, value=0.0, step=10.0)
-    gaso = f3.number_input("휘발유 (L)", min_value=0.0, value=0.0, step=10.0)
-    dies = f4.number_input("경유 (L)", min_value=0.0, value=0.0, step=10.0)
+    wood = f3.number_input("화목·장작 (kg)", min_value=0.0, value=0.0, step=50.0)
+    gaso = f4.number_input("휘발유 (L)", min_value=0.0, value=0.0, step=10.0)
+    dies = f5.number_input("경유 (L)", min_value=0.0, value=0.0, step=10.0)
+    if wood > 0:
+        b = em.burn("화목(장작)", wood)
+        st.caption(
+            f"화목 {wood:,.0f} kg — 생물기원 CO₂ {b.bio_co2_kg:,.0f} kg 은 "
+            f"**합계에서 뺍니다**(고시 제18조). CH₄·N₂O {b.ar5_t * 1000:,.0f} kg "
+            "만 합계에 들어갑니다. 엑셀에도 따로 적힙니다."
+        )
+
+    st.markdown('<p class="hint"><b>자가 태양광</b> — 있으면 넣어 주세요. '
+                "회피 배출량이 참고로 계산되고 합계에는 넣지 않습니다.</p>",
+                unsafe_allow_html=True)
+    s1, s2 = st.columns(2)
+    solar = s1.number_input("발전량 (kWh)", min_value=0.0, value=0.0, step=100.0)
+    solar_self = s2.number_input("그중 자가소비량 (kWh)", min_value=0.0,
+                                 value=0.0, step=100.0)
 
     # 도시가스가 0 이라 3단계에서 배수를 못 냈던 사찰도, 여기에 난방 연료를
     # 넣으면 그때 배수를 냅니다(지시 04 3번).
     # **휘발유·경유는 더하지 않습니다.** 차량 연료라 건물 에너지가 아닙니다.
     _bld = st.session_state.bld
-    if _bld and _bld[0] and gs["total"] <= 0 and (lpg > 0 or kero > 0):
+    if _bld and _bld[0] and gs["total"] <= 0 and (lpg > 0 or kero > 0 or wood > 0):
         _ds = bldrgst.summarize(_bld[0])
         _heat = (em.fuel_kwh("LPG-프로판(LPG1호)", lpg)
-                 + em.fuel_kwh("등유(Kerosene)", kero))
+                 + em.fuel_kwh("등유(Kerosene)", kero)
+                 + em.fuel_kwh("화목(장작)", wood))
         _u = em.area_use(
             es["total"], 0.0, _ds["area_excl_parking"],
             region.of(picked.jibunAddr),
@@ -516,6 +533,7 @@ if picked and st.session_state.diag:
         extra = []
         for fuel, qty, scope in (("LPG-프로판(LPG1호)", lpg, "고정연소"),
                                  ("등유(Kerosene)", kero, "고정연소"),
+                                 ("화목(장작)", wood, "고정연소"),
                                  ("휘발유(Gasoline)", gaso, "이동연소"),
                                  ("경유(Diesel)", dies, "이동연소")):
             if qty > 0:
@@ -527,7 +545,9 @@ if picked and st.session_state.diag:
                 out = os.path.join(tmp, f"{temple}_{year}_온실가스산정.xlsx")
                 path, acts = tpl.from_diagnosis(
                     out, temple, year, es["total"], gs["total"],
-                    gas_basis=gas_basis, extra=extra)
+                    gas_basis=gas_basis, extra=extra,
+                    road_addr=picked.roadAddr, jibun_addr=picked.jibunAddr,
+                    solar_kwh=solar, solar_self_kwh=solar_self)
                 blob = io.open(path, "rb").read()
         except tpl.TemplateError as e:
             st.error(str(e)); st.stop()

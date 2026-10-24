@@ -33,6 +33,7 @@ class Fuel:
     n2o: float         # kgN2O/TJ
     oxid: float        # 산화계수 (CO2 에만 적용)
     default_scope: str
+    biogenic: bool = False   # 생물기원 CO2 = 합계에서 뺌 (고시 제18조)
 
 
 # CH4·N2O 는 **상업·공공** 열입니다 (2026-10-24 개정).
@@ -59,14 +60,55 @@ class Fuel:
 #     바뀌는데, 이동연소는 손대지 말라는 지시입니다.
 #     경유를 보일러에 쓰는 사찰이 나오면 참조표에 줄을 따로 만들어야 합니다.
 FUELS: Dict[str, Fuel] = {
-    "도시가스/LNG":        Fuel("Nm3", 38.9, 56100, 5,   0.1, 0.995, "고정연소"),
-    "경유(Diesel)":        Fuel("L",   35.2, 73200, 3,   0.6, 0.995, "이동연소"),
-    "등유(Kerosene)":      Fuel("L",   34.2, 73200, 10,  0.6, 0.995, "고정연소"),
-    "휘발유(Gasoline)":    Fuel("L",   30.4, 71600, 3,   0.6, 0.99,  "이동연소"),
-    "LPG-프로판(LPG1호)":  Fuel("kg",  46.3, 64600, 5,   0.1, 0.99,  "고정연소"),
-    "LPG-부탄(LPG3호)":    Fuel("kg",  45.7, 66300, 5,   0.1, 0.99,  "고정연소"),
+    # 연료명 / 단위 / 순발열량 / CO2 / CH4 / N2O / 산화계수 / Scope
+    "도시가스/LNG":        Fuel("Nm3", 38.9, 56100,  5,   0.1, 0.995, "고정연소"),
+    # 경유는 **차량이 흔한 쓰임**이라 기본값이 이동연소입니다.
+    # 보일러에 쓰면 scope="고정연소" 로 부르십시오. 그때는 이 줄의 값
+    # (CH4 10 · 산화계수 0.99)이 쓰이고, 차량이면 ROAD 표가 쓰입니다.
+    "경유(Diesel)":        Fuel("L",   35.2, 73200, 10,   0.6, 0.99,  "이동연소"),
+    "등유(Kerosene)":      Fuel("L",   34.2, 73200, 10,   0.6, 0.99,  "고정연소"),
+    "휘발유(Gasoline)":    Fuel("L",   30.4, 71600,  3,   0.6, 0.99,  "이동연소"),
+    "LPG-프로판(LPG1호)":  Fuel("kg",  46.3, 64600,  5,   0.1, 0.995, "고정연소"),
+    "LPG-부탄(LPG3호)":    Fuel("kg",  45.7, 66300,  5,   0.1, 0.995, "고정연소"),
+    # 화목(장작) — 바이오매스. 산중 사찰 난방의 큰 몫입니다.
+    #   발열량 15.6 MJ/kg  별표11 Ⅴ.바이오매스 「목재/목재폐기물 TJ/Gg 15.6」
+    #   CO2 112,000 · CH4 300 · N2O 4   별표10 Ⅴ.바이오매스 (상업·공공 열)
+    #   산화계수 1.0 — 별표6 「산화계수는 CO2 배출계수와 **동일한 산정등급**을
+    #   사용하여야 한다」. CO2 가 별표10 Tier 1 이므로 산화계수도 Tier 1 = 1.0
+    "화목(장작)":          Fuel("kg",  15.6, 112000, 300, 4.0, 1.0,   "고정연소",
+                                biogenic=True),
 }
 
+# ── 이동연소(도로) 전용 표 ───────────────────────────────────
+#
+# **고정연소와 계산 방식이 다릅니다.** 별표6 「5. 이동연소(도로)」 Tier 1 은
+#
+#     Ei,j = Qi x ECi x EFi,j x 10^-6
+#
+# 세 항뿐이고 **산화계수(fi) 항이 없습니다.** 고정연소 식에는
+# 「fi: 연료(i)의 산화계수」가 들어 있는데 도로 식에는 아예 없습니다
+# (2026-10-24 별표6 원문 대조). 그래서 산화계수를 1.0 으로 둡니다.
+#
+# CH4·N2O 는 별표6 <표-4> 「연료별, 온실가스별 기본배출계수」입니다.
+#
+#     휘발유  69,300   25    8.0
+#     경유    74,100    3.9   3.9
+#     LPG     63,100   62     0.2
+#
+# **CO2 와 발열량은 별표12(국가 고유)를 그대로 씁니다.** 표-4 의 CO2 는
+# 별표10 Tier 1 값이라 우리가 쓰는 Tier 2 보다 낮습니다.
+ROAD: Dict[str, Fuel] = {
+    "휘발유(Gasoline)":    Fuel("L",  30.4, 71600, 25,  8.0, 1.0, "이동연소"),
+    "경유(Diesel)":        Fuel("L",  35.2, 73200,  3.9, 3.9, 1.0, "이동연소"),
+    "LPG-부탄(LPG3호)":    Fuel("kg", 45.7, 66300, 62,   0.2, 1.0, "이동연소"),
+}
+
+ROAD_SCOPE = "이동연소"
+
+
+def table_for(scope: str) -> Dict[str, Fuel]:
+    """쓰임에 맞는 참조표. 엑셀의 FUEL_TABLE / ROAD_TABLE 과 짝입니다."""
+    return ROAD if scope == ROAD_SCOPE else FUELS
 # 같은 연료도 쓰임에 따라 시트가 다릅니다. 계수는 같습니다.
 # 경유를 보일러에 쓰면 고정연소(③), 차량에 쓰면 이동연소(④).
 # 연료의 속성이 아니라 쓰임의 속성이므로 부르는 쪽이 지정할 수 있습니다.
@@ -129,9 +171,11 @@ class Burn:
     unit: str
     hv: float
     tj: float
-    co2_kg: float
+    co2_kg: float        # 합계에 들어가는 CO2
     ch4_kg: float        # GWP 적용 전 (kgCH4)
     n2o_kg: float        # GWP 적용 전 (kgN2O)
+    bio_co2_kg: float = 0.0   # 생물기원 CO2 — **합계에서 뺍니다**
+    scope: str = "고정연소"
     raw: Fuel = field(repr=False, default=None)
 
     def total_kg(self, gwp: str = GWP_DEFAULT) -> float:
@@ -164,18 +208,31 @@ class Burn:
         )
 
 
-def burn(fuel: str, qty: float) -> Burn:
-    """연료 활동량으로 배출량을 냅니다. 산화계수는 CO2 에만 적용합니다."""
-    if fuel not in FUELS:
-        raise EmissionError(f"참조표에 없는 연료입니다: {fuel}")
-    f = FUELS[fuel]
+def burn(fuel: str, qty: float, scope: str = "고정연소") -> Burn:
+    """연료 활동량으로 배출량을 냅니다. 산화계수는 CO2 에만 적용합니다.
+
+    **쓰임에 따라 표가 다릅니다.** 차량이면 별표6 도로 표를 씁니다.
+    같은 경유라도 보일러는 CH4 10·산화계수 0.99, 차량은 CH4 3.9·산화계수 1.0.
+
+    바이오매스(화목)의 CO2 는 `bio_co2_kg` 로 따로 담고 합계에서 뺍니다
+    (고시 제18조 ①1호 — 「이산화탄소 이외의 기타 온실가스는 총 배출량
+    산정에 포함한다」).
+    """
+    tbl = table_for(scope)
+    if fuel not in tbl:
+        where = "도로 이동연소" if scope == ROAD_SCOPE else "고정연소"
+        raise EmissionError(f"{where} 참조표에 없는 연료입니다: {fuel}")
+    f = tbl[fuel]
     qty = float(qty or 0)
     tj = qty * f.hv / 1_000_000          # MJ -> TJ
+    co2 = f.co2 * tj * f.oxid
     return Burn(
         fuel=fuel, qty=qty, unit=f.unit, hv=f.hv, tj=tj,
-        co2_kg=f.co2 * tj * f.oxid,
+        co2_kg=0.0 if f.biogenic else co2,
         ch4_kg=f.ch4 * tj,
         n2o_kg=f.n2o * tj,
+        bio_co2_kg=co2 if f.biogenic else 0.0,
+        scope=scope,
         raw=f,
     )
 

@@ -228,6 +228,20 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
     r = em.diagnose(es["total"], gs["total"],
                     "산중" if j.is_mountain else "도심")
     lvl, _ = em.confidence(es["total"], gs["total"])
+
+    # 옆 지번은 **세기만 합니다.** 자동으로 찾거나 더하지 않습니다.
+    #
+    # 청정사 본번 0001 에 89개가 있었고 훑어 보니 남의 건물 전기가
+    # 20여 건(최대 245,594 kWh) 잡혔습니다. 일괄 조회에서 그것을 합치면
+    # 2026-09-13 에 고친 `picked or rows` 폴백과 같은 사고가 납니다.
+    # 합치는 것은 **화면에서 회원이 고를 때만** 합니다(작업지시 07 ②).
+    sib_n = ""
+    try:
+        sib_n = str(len(bldrgst.siblings(
+            p["sigunguCd"], p["bjdongCd"], p["bun"], service_key,
+            p["platGbCd"], p["ji"])))
+    except portal.PortalError:
+        pass
     # 면적당 에너지 — 전기+가스를 **주차장 뺀 연면적**으로 나눠 그 지역
     # 사찰 원단위와 견줍니다. 도시가스가 0 이면 배수를 내지 않습니다.
     use = em.area_use(
@@ -244,6 +258,10 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
 
     return {
         "번호": t.no, "사찰": t.name,
+        # 같은 이름 절이 흔합니다 — 원오사(부산 해운대구) / 원오사(계룡시).
+        # 기록의 정체성은 (번호, 연도)라 섞이지 않지만, **표에 이름만
+        # 보이는 자리**가 헷갈립니다. 표시용 이름을 따로 둡니다.
+        "표시이름": region.named(t.name, j.jibunAddr),
         "지번주소": j.jibunAddr, "도로명주소": j.roadAddr, "조회연도": str(year),
         "Scope1(t)": f"{r.gas_t:.2f}", "Scope2(t)": f"{r.elec_t:.2f}",
         "공개자료 배출량(t)": f"{r.subtotal_t:.2f}",
@@ -266,6 +284,7 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
         "시군구": p["sigunguCd"], "법정동": p["bjdongCd"],
         "번": p["bun"], "지": p["ji"], "대지구분": p["platGbCd"],
         # ── 원단위 비교 (지시 04). store.COLUMNS 밖이라 CSV 로만 나갑니다 ──
+        "옆지번수": sib_n,
         "지역": region.region4(j.jibunAddr),
         "지역(원단위)": use.region,
         "주차장 제외 연면적(m2)": f"{use.area:.1f}" if use.area else "",
@@ -285,14 +304,14 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
 # 손대지 않기로 했으므로(지시 04 9번), 배수는 **별도 파일**에 쌓습니다.
 RATIO_NAME = "원단위_배수.csv"
 RATIO_COLUMNS = [
-    "번호", "사찰", "지번주소", "조회연도",
+    "번호", "사찰", "표시이름", "지번주소", "조회연도",
     "지역", "지역(원단위)",
     "연면적(m2)", "옥내 주차장(m2)", "주차장 제외 연면적(m2)",
     "전기(kWh)", "가스(kWh)",
     "면적당 전기(kWh/m2)", "면적당 에너지(kWh/m2)",
     "연간 총에너지(kWh)", "총량_순위",
     "사찰 원단위", "원단위 대비 배수", "분류", "배수 미산출 사유",
-    "동수", "전통 동수", "신식 동수", "신뢰도", "실패사유",
+    "동수", "전통 동수", "신식 동수", "옆지번수", "신뢰도", "실패사유",
 ]
 
 

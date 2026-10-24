@@ -172,3 +172,31 @@ def label(addr: str) -> str:
         return "지역 미확인"
     r2 = region2(r4)
     return f"{r2} ({r4})"
+
+
+# 광역시·특별시는 시도까지 붙여야 알아봅니다(부산 해운대구).
+# 도는 시군만으로 충분합니다(계룡시).
+_METRO = ("서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종")
+
+
+def place(addr: str) -> str:
+    """같은 이름 절을 가르는 짧은 지명. 모르면 빈 문자열.
+
+    녹색사찰 명단 43번 원오사(부산 해운대구)와 교수님 제적 사찰
+    원오사(계룡시)가 다른 절입니다. 이름만 적으면 사람이 헷갈립니다.
+    """
+    sido, sigungu = split(addr)
+    if not sido:
+        return ""
+    if sido == "세종":
+        return "세종"
+    if not sigungu:
+        return sido
+    return f"{sido} {sigungu}" if sido in _METRO else sigungu
+
+
+def named(name: str, addr: str) -> str:
+    """사찰명에 지명을 붙입니다 — 원오사(부산 해운대구)."""
+    p = place(addr)
+    name = (name or "").strip()
+    return f"{name}({p})" if p and name else (name or p)

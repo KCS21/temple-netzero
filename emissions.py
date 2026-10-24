@@ -493,7 +493,18 @@ def area_use(
 
     heat = u.gas_kwh + u.other_kwh
     if heat <= 0:
-        u.note = NO_HEAT_NOTE
+        # 가스를 몰라도 **전기만으로 이미 원단위의 3배를 넘으면** 면적이
+        # 덜 잡힌 것입니다. 가스를 더하면 값이 더 커질 뿐이라 전기만 쓴
+        # 값은 **하한**입니다. 하한이 이미 3배를 넘으면 전통 동수를 볼
+        # 것도 없습니다(2026-10-24 추가).
+        #
+        # 참당암이 그 경우입니다 — 258 m2 에 전기만 161,773 kWh = 627,
+        # 중부 원단위 103 의 6배인데 가스가 0 이라 그동안 안 잡혔습니다.
+        if u.base and u.elec_per > u.base * SUSPECT_RATIO:
+            u.suspect = True
+            u.note = SUSPECT_NOTE
+        else:
+            u.note = NO_HEAT_NOTE
         return u
 
     u.per = (u.elec_kwh + heat) / u.area

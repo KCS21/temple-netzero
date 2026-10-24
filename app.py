@@ -19,6 +19,7 @@ import bldengy
 import bldrgst
 import emissions as em
 import juso
+import kakao
 import keys
 import batch
 import portal
@@ -63,6 +64,7 @@ SHARE = _share_mode()
 
 try:
     CONFM_KEY, SERVICE_KEY = keys.load()
+    KAKAO_KEY = keys.kakao()      # 없어도 됩니다. 단추만 숨깁니다
 except keys.KeyError_ as e:
     st.title("사찰 넷제로 진단")
     st.error(str(e))
@@ -70,7 +72,11 @@ except keys.KeyError_ as e:
 
 for k, v in [("rows", []), ("total", 0), ("page", 1), ("kw", ""),
              ("picked", None), ("error", None), ("bld", None), ("diag", None),
-             ("xlsx", None)]:
+             ("xlsx", None),
+             # 지도 검색(작업지시 07 ①) · 옆 지번(②) · 묶기(③)
+             ("places", []), ("places_err", ""), ("kakao_done", ""),
+             ("sibs", None), ("sibs_err", ""), ("merged", []),
+             ("bill_ok", False)]:
     st.session_state.setdefault(k, v)
 
 
@@ -94,6 +100,51 @@ def run_search(keyword, page):
                             searched=True)
 
 
+def _kakao_block():
+    """지도에서 절 이름 찾기 (작업지시 07 ①).
+
+    **키가 없으면 아무것도 보이지 않습니다.** 지도 검색은 있으면 좋은
+    것이지 없으면 안 되는 것이 아닙니다. 오류 화면이 나와선 안 됩니다.
+
+    결과는 **저장하지 않습니다.** 고른 주소를 도로명주소 API 로 다시
+    조회해서 그 결과만 저장합니다(kakao.py 머리말).
+    """
+    if not KAKAO_KEY:
+        return
+    kw = (st.session_state.kw or "").strip()
+    if not kw:
+        return
+    with st.expander(f"지도에서 「{kw}」 찾아보기", expanded=False):
+        st.markdown('<p class="hint">도로명주소 검색은 <b>건물 이름이 등록된 절만</b> '
+                    "찾습니다. 지도에는 더 많이 있습니다.<br>"
+                    "<b>누르실 때만</b> 지도를 찾습니다.</p>",
+                    unsafe_allow_html=True)
+        if st.button("지도에서 찾기", key="kakao_go", width="stretch"):
+            try:
+                st.session_state.places = kakao.search(kw, KAKAO_KEY)[0]
+                st.session_state.places_err = ""
+            except kakao.KakaoError as e:
+                st.session_state.places = []
+                st.session_state.places_err = str(e)
+
+        if st.session_state.get("places_err"):
+            st.warning(st.session_state.places_err)
+        places = st.session_state.get("places") or []
+        if places:
+            st.markdown(f"**지도에서 {len(places)}곳**을 찾았습니다. "
+                        "고르시면 그 주소로 다시 찾습니다.")
+            pick = st.radio("지도 결과", options=list(range(len(places))),
+                            format_func=lambda i: places[i].label(),
+                            index=None, label_visibility="collapsed",
+                            key="kakao_pick")
+            if pick is not None:
+                key = places[pick].search_key
+                if key and st.session_state.get("kakao_done") != key:
+                    st.session_state.kakao_done = key
+                    run_search(key, 1)
+                    st.rerun()
+
+
 with st.form("search"):
     c1, c2 = st.columns([4, 1])
     keyword = c1.text_input("주소", value=st.session_state.kw,
@@ -114,6 +165,7 @@ if st.session_state.error:
             + _NL + _NL +
             "지도 앱에서 주소를 확인해 **주소로** 찾아 주세요."
         )
+    _kakao_block()
 
 rows = st.session_state.rows
 if rows:
@@ -137,6 +189,8 @@ if rows:
                       index=None, label_visibility="collapsed")
     if choice is not None and st.session_state.picked is not rows[choice]:
         st.session_state.update(picked=rows[choice], bld=None, diag=None)
+
+    _kakao_block()
 
     # 산중 사찰은 산 지번이 뒤쪽 쪽수에 묻혀 있는 일이 많습니다.
     # 검색어 끝에 "산"을 붙이면 산 지번만 올라옵니다.
@@ -252,13 +306,211 @@ if picked:
                 st.info(msg + "\n\n규제 해당 여부는 관할 지자체 질의로만 확정됩니다.")
 
 
+def _sibling_block(j, year):
+    """같은 본번의 다른 지번 찾기 (작업지시 07 ②).
+
+    **누를 때만** 찾고, **회원이 고릅니다.** 화면이 알아서 다른 지번으로
+    넘어가지 않습니다. 지번이 너무 많으면 목록을 만들지 않고 다음 행동을
+    알려 줍니다 — 청정사 본번 0001 에 89개가 있었고, 훑어 보니 남의 건물
+    전기가 20여 건 잡혔습니다.
+    """
+    p = j.building_params()
+    st.markdown('<p class="hint">절이 <b>여러 지번에 걸쳐</b> 있고 전기가 '
+                "그중 <b>한 지번으로만</b> 들어오는 일이 있습니다. "
+                "원오사는 법당(375)에 자료가 없고 숙소(375-3)에 있었습니다.</p>",
+                unsafe_allow_html=True)
+    if st.button(f"같은 번지({int(p['bun'])})의 다른 지번도 찾아보기",
+                 key="sib_go", width="stretch"):
+        try:
+            st.session_state.sibs = bldrgst.siblings(
+                p["sigunguCd"], p["bjdongCd"], p["bun"], SERVICE_KEY,
+                p["platGbCd"], p["ji"])
+            st.session_state.sibs_err = ""
+        except portal.PortalError as e:
+            st.session_state.sibs = None
+            st.session_state.sibs_err = str(e)
+
+    if st.session_state.get("sibs_err"):
+        st.error(st.session_state.sibs_err)
+        return
+    sibs = st.session_state.get("sibs")
+    if sibs is None:
+        return
+    if not sibs:
+        st.info("이 본번에는 건물이 있는 다른 지번이 없습니다. "
+                "**고지서에 적힌 주소**로 찾아 보십시오.")
+        return
+    if len(sibs) > bldrgst.SIBLING_MAX:
+        st.warning(
+            f"같은 번지({int(p['bun'])})에 다른 지번이 **{len(sibs)}개** 있어 "
+            "자동 목록을 만들지 않습니다. **남의 건물이 섞일 수 있기 "
+            "때문입니다.**" + _NL + _NL +
+            "**고지서에 적힌 주소나 지도 앱에서 지번을 확인해 직접 넣어 주세요.**"
+        )
+        return
+
+    st.markdown(f"**건물이 있는 지번 {len(sibs)}곳**을 찾았습니다. "
+                "어느 것이 이 절인지 골라 주세요.")
+    keys_ = sorted(sibs)
+    st.table({
+        "지번": [sibs[k]["지번"] for k in keys_],
+        "연면적": [f'{sibs[k]["연면적"]:,.1f} m²' for k in keys_],
+        "주용도": [sibs[k]["주용도"] or "-" for k in keys_],
+        "사용승인일": [sibs[k]["사용승인일"] or "-" for k in keys_],
+        "동수": [f'{sibs[k]["동수"]}동' for k in keys_],
+    })
+    st.caption("주용도는 **건축물대장 기준**입니다. 법당이 단독주택으로, "
+               "숙소가 근린생활시설로 올라가 있기도 합니다(원오사). "
+               "주용도를 보고 전각 이름을 짐작하지 마십시오.")
+    pick = st.radio("지번 선택", options=keys_,
+                    format_func=lambda k: f'{sibs[k]["지번"]}  ·  '
+                                          f'{sibs[k]["연면적"]:,.1f} m²',
+                    index=None, label_visibility="collapsed", key="sib_pick")
+    if pick is not None:
+        base = j.jibunAddr.rsplit(" ", 1)[0]
+        if st.button(f"**{sibs[pick]['지번']}** 로 다시 찾기",
+                     key="sib_apply", width="stretch"):
+            run_search(f"{base} {sibs[pick]['지번']}", 1)
+            st.session_state.sibs = None
+            st.rerun()
+
+
+def _merge_cols() -> dict:
+    """묶기 결과를 사찰기록 열 셋으로. 안 묶었으면 빈칸입니다."""
+    ms = st.session_state.get("merge_state")
+    if not ms or len(ms["rows"]) < 2:
+        return {}
+    return {
+        "묶은 지번": ", ".join(r["지번"] for r in ms["rows"]),
+        "묶음 근거": ms["basis"],
+        "묶은 연면적(m2)": f'{ms["area"]:.1f}',
+    }
+
+
+def _merge_rows(picked, es, gs):
+    """지금 지번 한 줄. 묶기의 첫 줄이 됩니다."""
+    bld = st.session_state.bld
+    d = bldrgst.summarize(bld[0]) if (bld and bld[0]) else {}
+    return {"지번": picked.jibunAddr, "연면적": d.get("total_area", 0.0),
+            "주차장제외": d.get("area_excl_parking", 0.0),
+            "전기": es["total"], "가스": gs["total"],
+            "동수": d.get("count", 0), "전통": d.get("trad_count", 0)}
+
+
+def _merge_block(picked, year, es, gs, use):
+    """한 절을 여러 지번으로 묶기 (작업지시 07 ③).
+
+    판정은 **도구가 정합니다.** 회원이 고르는 것은 「고지서로 확인했다」
+    하나뿐입니다.
+
+      모든 지번에 전기 기록       -> 공개자료_전지번  (합친 값 낸다)
+      전기 0 인 지번 + 고지서 확인 -> 고지서확인      (낸다)
+      전기 0 인 지번 + 확인 안 됨  -> 모름           (내지 않는다)
+    """
+    with st.expander("이 절에 지번 더하기 (여러 지번에 걸친 절)"):
+        st.markdown('<p class="hint">절이 여러 지번에 걸쳐 있으면 더해 주세요. '
+                    "<b>전기가 잡히는 지번과 건물이 있는 지번이 다를 수 있습니다.</b><br>"
+                    "더한 지번의 전기는 <b>잰 값의 합</b>이라 늘 맞습니다. "
+                    "다만 <b>면적당 값</b>은 한전 계약이 하나여야 뜻이 있습니다.</p>",
+                    unsafe_allow_html=True)
+
+        extra = st.session_state.get("merged") or []
+        c1, c2 = st.columns([3, 1])
+        add = c1.text_input("더할 지번", placeholder="예: 충청남도 계룡시 엄사면 엄사리 375",
+                            label_visibility="collapsed", key="merge_add")
+        if c2.button("더하기", key="merge_go", width="stretch") and add.strip():
+            try:
+                rows_, _ = juso.search(add.strip(), CONFM_KEY)
+                j2 = rows_[0]
+                p2 = j2.building_params()
+                dongs2 = bldrgst.fetch_dongs(p2["sigunguCd"], p2["bjdongCd"],
+                                             p2["bun"], p2["ji"], SERVICE_KEY,
+                                             p2["platGbCd"])
+                d2 = bldrgst.summarize(dongs2)
+                e2 = bldengy.fetch_year(p2["sigunguCd"], p2["bjdongCd"], p2["bun"],
+                                        p2["ji"], year, SERVICE_KEY,
+                                        plat_gb=p2["platGbCd"])
+                extra.append({
+                    "지번": j2.jibunAddr,
+                    "연면적": d2["total_area"],
+                    "주차장제외": d2["area_excl_parking"],
+                    "전기": sum(e2["elec"].values()),
+                    "가스": sum(e2["gas"].values()),
+                    "동수": d2["count"], "전통": d2["trad_count"]})
+                st.session_state.merged = extra
+                st.rerun()
+            except (juso.JusoError, portal.PortalError) as ex:
+                st.error(str(ex))
+            except IndexError:
+                st.error("그 지번을 찾지 못했습니다. 지번을 다시 확인해 주세요.")
+
+        if not extra:
+            return
+
+        rows_all = [_merge_rows(picked, es, gs)] + extra
+        st.table({
+            "지번": [r["지번"] for r in rows_all],
+            "연면적": [f'{r["연면적"]:,.1f} m²' for r in rows_all],
+            "전기(kWh)": [f'{r["전기"]:,.0f}' for r in rows_all],
+            "가스(kWh)": [f'{r["가스"]:,.0f}' for r in rows_all],
+        })
+        if st.button("묶기 지우기", key="merge_clear"):
+            st.session_state.merged = []
+            st.rerun()
+
+        bill = st.checkbox(
+            "고지서로 **한전 계약이 하나**임을 확인했습니다",
+            key="bill_ok",
+            help="통합청구로 고지서가 한 장이어도 계약이 둘일 수 있습니다. "
+                 "고지서 안에 계약별로 따로 적혀 있습니다. "
+                 "외벽 계량기 개수로는 알 수 없습니다.")
+        basis = store.merge_basis([r["전기"] for r in rows_all], bill)
+        area = sum(r["주차장제외"] for r in rows_all)
+        elec = sum(r["전기"] for r in rows_all)
+        gas = sum(r["가스"] for r in rows_all)
+
+        st.markdown(f"**합계 — 연면적 {sum(r['연면적'] for r in rows_all):,.1f} m² · "
+                    f"전기 {elec:,.0f} kWh · 가스 {gas:,.0f} kWh**")
+        st.caption(f"묶음 판정: **{basis}**")
+
+        if not store.merged_ratio_ok(basis):
+            st.warning(
+                "**합친 면적당 값을 내지 않았습니다.**" + _NL + _NL +
+                "전기가 0 인 지번이 끼어 있어, 한전 계약이 하나인지 "
+                "공개자료로는 가릴 수 없습니다. 계약이 둘인데 면적만 합치면 "
+                "값이 실제보다 **낮게** 나옵니다." + _NL + _NL +
+                "**고지서의 고객번호가 몇 개인지, 각각의 사용 장소 주소가 "
+                "어디인지** 확인해 주세요. 확인되면 위 칸을 체크하십시오."
+            )
+        else:
+            u2 = em.area_use(elec, gas, area, region.of(picked.jibunAddr))
+            if u2.has_ratio:
+                st.success(
+                    f"묶은 면적당 에너지 **{u2.per:,.0f} kWh/m²** — "
+                    f"{region.label(picked.jibunAddr)} 사찰 원단위 {u2.base} 대비 "
+                    f"**{u2.ratio:.2f}배**  ({basis})")
+            else:
+                st.info(f"묶은 전기만 **{u2.elec_per:,.0f} kWh/m²** — {u2.note}")
+
+        st.session_state.merge_state = {
+            "basis": basis, "rows": rows_all, "area": area,
+            "elec": elec, "gas": gas}
+
+
 # ═══════════ 3단계 — 개략 진단 ═══════════
 if picked:
     st.divider()
     st.markdown("#### 에너지 진단")
     this_year = dt.date.today().year
+    # 건물에너지 API 는 **2020년부터** 줍니다(2026-10-24 봉은사로 확인,
+    # 2015~2019 전부 0). 다만 지역·건물마다 들어온 시점이 다릅니다 —
+    # 서울 두 곳은 2020년부터 12달이 차 있는데 금산사·실상사는 2023년까지
+    # 사실상 비어 있었습니다. 그래서 해를 넓게 열되, 받아 본 뒤 12달이
+    # 안 되면 그 자리에서 밝힙니다(아래 months 경고).
+    ENERGY_FIRST_YEAR = 2020
+    years = list(range(this_year - 1, ENERGY_FIRST_YEAR - 1, -1))
     c1, c2 = st.columns(2)
-    year = c1.selectbox("조회할 해", [this_year - 1, this_year - 2, this_year - 3])
+    year = c1.selectbox("조회할 해", years)
     ttype = c2.selectbox("사찰 유형", ["도심", "산중"], index=1 if picked.is_mountain else 0)
 
     st.markdown('<p class="hint">전기와 가스는 <b>지번 한 곳</b>을 기준으로 찾습니다. '
@@ -288,6 +540,7 @@ if picked:
         lvl, msg = em.confidence(es["total"], gs["total"])
 
         if es["total"] == 0 and gs["total"] == 0:
+            _sibling_block(picked, year)
             st.error(f"""**{picked.jibunAddr}** 의 {year}년 자료가 없습니다.
 
 이 지번에 없을 뿐, 전기가 **다른 지번으로 잡혀 있을 수 있습니다.**
@@ -379,6 +632,17 @@ if picked:
                     f"{es['ratio']:.1f}배입니다. "
                     + ("난방 개선 여지가 큽니다." if es["ratio"] >= 2.5 else "난방 부담은 크지 않습니다."))
 
+            # 해에 따라 자료가 덜 들어와 있습니다. 2020~2022 는 지역마다
+            # 편차가 큽니다(금산사·실상사는 2023년까지 사실상 비어 있었음).
+            if es["total"] and es["months"] < 12:
+                st.warning(
+                    f"**{year}년은 전기 자료가 {es['months']}달치뿐입니다.**"
+                    + _NL + _NL +
+                    "그 해에 자료가 덜 들어온 것이지 전기를 안 쓴 것이 "
+                    "아닙니다. **연간 값으로 보면 적게 나옵니다.** "
+                    "최근 해로 바꿔 보십시오."
+                )
+
             if es["total"]:
                 st.caption("월별 전기 사용량 (kWh)")
                 st.bar_chart({f"{k[4:]}월": v for k, v in sorted(data["elec"].items())})
@@ -434,6 +698,7 @@ if picked:
                         "용도지역": " / ".join(jjg),
                         "시군구": pp["sigunguCd"], "법정동": pp["bjdongCd"],
                         "번": pp["bun"], "지": pp["ji"], "대지구분": pp["platGbCd"],
+                        **_merge_cols(),
                     })
                 except store.StoreError as e:
                     st.error(str(e)); st.stop()
@@ -441,6 +706,8 @@ if picked:
                     ("같은 지번·같은 해 기록을 **새것으로 바꿨습니다.**"
                      if replaced else "기록에 **더했습니다.**")
                     + f" 지금까지 {len(rows)}곳입니다.")
+            _merge_block(picked, year, es, gs, use)
+
             st.markdown('<p class="hint"><b>아직 모르는 것</b> — 계약전력, LPG·등유·화목, '
                         "차량, 상수도. 모두 방문해서 확인해야 합니다.</p>", unsafe_allow_html=True)
 
@@ -539,20 +806,34 @@ if picked and st.session_state.diag:
             if qty > 0:
                 extra.append(tpl.Activity(fuel, float(qty), scope=scope))
 
-        temple = (picked.bdNm or picked.jibunAddr).strip()
+        # 묶었으면 **지번별 전기 합계**로 나갑니다. 잰 값의 합이라
+        # 한전 계약 수와 상관없이 맞습니다(작업지시 07 ③).
+        _ms = st.session_state.get("merge_state")
+        _elec = _ms["elec"] if _ms and len(_ms["rows"]) > 1 else es["total"]
+        _gas = _ms["gas"] if _ms and len(_ms["rows"]) > 1 else gs["total"]
+        _srcs = ([{"지번": r["지번"], "연면적": round(r["연면적"], 1),
+                   "주차장제외": round(r["주차장제외"], 1),
+                   "전기": round(r["전기"]), "가스": round(r["가스"]),
+                   "동수": r["동수"], "전통": r["전통"]}
+                  for r in _ms["rows"]] if _ms and len(_ms["rows"]) > 1 else [])
+        _basis = _ms["basis"] if _ms and len(_ms["rows"]) > 1 else ""
+
+        temple = region.named((picked.bdNm or picked.jibunAddr).strip(),
+                              picked.jibunAddr)
         try:
             with tempfile.TemporaryDirectory() as tmp:
                 out = os.path.join(tmp, f"{temple}_{year}_온실가스산정.xlsx")
                 path, acts = tpl.from_diagnosis(
-                    out, temple, year, es["total"], gs["total"],
+                    out, temple, year, _elec, _gas,
                     gas_basis=gas_basis, extra=extra,
                     road_addr=picked.roadAddr, jibun_addr=picked.jibunAddr,
-                    solar_kwh=solar, solar_self_kwh=solar_self)
+                    solar_kwh=solar, solar_self_kwh=solar_self,
+                    sources=_srcs, merge_basis=_basis)
                 blob = io.open(path, "rb").read()
         except tpl.TemplateError as e:
             st.error(str(e)); st.stop()
 
-        pv = tpl.preview(es["total"], acts, elec_basis=elec_basis)
+        pv = tpl.preview(_elec, acts, elec_basis=elec_basis)
         st.session_state.xlsx = (blob, f"{temple}_{year}_온실가스산정.xlsx", pv, acts)
 
     x = st.session_state.xlsx
@@ -632,7 +913,8 @@ if not SHARE:
             st.caption(" · ".join(bits) + ".")
 
         st.table({
-            "사찰": [r.get("사찰", "") for r in saved],
+            "사찰": [region.named(r.get("사찰", ""), r.get("지번주소", ""))
+                     for r in saved],
             "연도": [r.get("조회연도", "") for r in saved],
             "배출량(t)": [r.get("공개자료 배출량(t)", "") for r in saved],
             "면적당(kWh/m²)": [r.get("면적당 전기(kWh/m2)", "") or "—" for r in saved],
@@ -648,7 +930,9 @@ if not SHARE:
         # 단일 사찰 화면에는 판정 문구를 붙이지 않습니다.
         _rr = batch.ratio_rows()
         _med, _usable = batch.classify(_rr)      # CSV 와 같은 함수를 씁니다
-        _pts = [(r.get("사찰", ""), q, t) for q, t, r in _usable]
+        # 같은 이름 절 구별 — 원오사(부산 해운대구) / 원오사(계룡시)
+        _pts = [(r.get("표시이름") or r.get("사찰", ""), q, t)
+                for q, t, r in _usable]
 
         if len(_pts) >= 3:
             st.markdown("##### 두 축으로 보기 — 효율과 규모")
@@ -826,7 +1110,8 @@ if not SHARE:
         if ready:
             st.table({
                 "번호": [r.get("번호", "") for r in ready],
-                "사찰": [r.get("사찰", "") for r in ready],
+                "사찰": [region.named(r.get("사찰", ""), r.get("지번주소", ""))
+                         for r in ready],
                 "배출 규모(t)": [r.get("공개자료 배출량(t)", "") for r in ready],
                 "난방 부담": [store.heating_flag(r) for r in ready],
                 "태양광 여지": [store.solar_room(r) for r in ready],
@@ -842,7 +1127,8 @@ if not SHARE:
                         "현장에서 확인해야 합니다.</p>", unsafe_allow_html=True)
             st.table({
                 "번호": [r.get("번호", "") for r in hold],
-                "사찰": [r.get("사찰", "") for r in hold],
+                "사찰": [region.named(r.get("사찰", ""), r.get("지번주소", ""))
+                         for r in hold],
                 "보류 사유": [r.get("_보류사유", "") for r in hold],
                 "전기(kWh)": [r.get("전기(kWh)", "") or "—" for r in hold],
                 "연면적(m²)": [r.get("연면적(m2)", "") or "—" for r in hold],

@@ -21,6 +21,7 @@ import os
 KEY_FILE = "키.txt"
 CONFM = "도로명주소"
 SERVICE = "공공데이터포털"
+KAKAO = "카카오"          # 지도에서 절 이름 찾기. **없어도 도구는 돕니다**
 
 TEMPLATE = f"{CONFM}=\n{SERVICE}=\n"
 
@@ -109,3 +110,49 @@ def load(folder: str = "") -> tuple:
             + guide(folder)
         )
     return confm, service
+
+
+def kakao(folder: str = "") -> str:
+    """카카오 REST API 키. **없으면 빈 문자열을 돌려줍니다.**
+
+    지도 검색은 **있으면 좋은 것**이지 없으면 안 되는 것이 아닙니다.
+    키가 없으면 화면에서 단추를 숨기고, 도로명주소 검색만으로 그대로
+    돌아야 합니다. 오류를 내지 마십시오(작업지시 07 ①).
+
+    웹에 올렸으면 Streamlit 비밀 보관함을, 내 컴퓨터면 키.txt 를 봅니다.
+    """
+    try:
+        import streamlit as st
+        v = str(st.secrets.get(KAKAO, "")).strip()
+        if v:
+            return v
+    except Exception:
+        pass
+
+    p = path(folder)
+    if not os.path.exists(p):
+        return ""
+    try:
+        text = _read(p)
+    except KeyError_:
+        return ""
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        name, _, value = line.partition("=")
+        if name.strip() == KAKAO:
+            return value.strip().strip('"').strip("'")
+    return ""
+
+
+KAKAO_GUIDE = (
+    "**지도에서 절 이름으로 찾기**를 쓰시려면 카카오 키가 필요합니다." + chr(10)
+    + chr(10) +
+    "1. developers.kakao.com 에 로그인" + chr(10) +
+    "2. 내 애플리케이션 → 애플리케이션 추가하기" + chr(10) +
+    "3. 앱 키에서 **REST API 키** 를 복사" + chr(10) +
+    "4. 같은 폴더 `키.txt` 에 한 줄 추가 — `카카오=복사한키`" + chr(10)
+    + chr(10) +
+    "없어도 **주소로 찾기는 그대로 됩니다.**"
+)

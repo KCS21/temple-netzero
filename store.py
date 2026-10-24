@@ -49,8 +49,36 @@ COLUMNS = [
     "용도지역",
     # ── 다시 조회할 때 쓰는 값 ──
     "시군구", "법정동", "번", "지", "대지구분",
+    # ── 여러 지번 묶기 (작업지시 07 ③) ──
+    # **끝에 붙입니다.** 기존 줄은 이 셋이 빈칸이 되어 지금처럼 돕니다.
+    "묶은 지번", "묶음 근거", "묶은 연면적(m2)",
     "저장시각",
 ]
+
+# 묶음 판정 — 도구가 자동으로 정합니다.
+# 회원이 고르는 것은 「고지서로 확인했다」 하나뿐입니다.
+MERGE_ALL_METERED = "공개자료_전지번"   # 모든 지번에 전기 기록 -> 합쳐도 됨
+MERGE_CONFIRMED = "고지서확인"          # 전기 0 인 지번이 있으나 계약 하나 확인
+MERGE_UNKNOWN = "모름"                  # 전기 0 인 지번 + 확인 안 됨 -> 합친 값 안 냄
+MERGE_BASES = (MERGE_ALL_METERED, MERGE_CONFIRMED, MERGE_UNKNOWN)
+
+
+def merge_basis(elecs, bill_confirmed: bool = False) -> str:
+    """지번별 전기 목록으로 묶음 판정을 냅니다.
+
+    보덕사는 -5·-6 **둘 다 전기가 나왔습니다.** 지번마다 계약이 잡혀
+    있으니 합쳐도 전기와 면적이 서로 맞습니다. 애매한 것은 **전기 0 인
+    지번이 끼었을 때**뿐입니다(원오사 375).
+    """
+    vals = list(elecs)
+    if vals and all(v and v > 0 for v in vals):
+        return MERGE_ALL_METERED
+    return MERGE_CONFIRMED if bill_confirmed else MERGE_UNKNOWN
+
+
+def merged_ratio_ok(basis: str) -> bool:
+    """합친 면적당 값을 내도 되는가. 「모름」이면 내지 않습니다."""
+    return basis in (MERGE_ALL_METERED, MERGE_CONFIRMED)
 
 # 사람이 채우는 열은 다시 조회해도 덮어쓰지 않습니다.
 KEEP_ON_UPDATE = ("방문 상태", "메모")

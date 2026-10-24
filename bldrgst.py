@@ -243,6 +243,52 @@ def solar_label(d: Dong, has_restriction: bool = False) -> str:
     return "협의 필요" if has_restriction else "후보"
 
 
+# 같은 본번에 지번이 이보다 많으면 **목록을 만들지 않습니다.**
+#
+# 청정사 본번 0001 에 다른 지번이 **89개**, 아리담문화원 0111 에 **166개**
+# 있었습니다. 동네 전체가 한 본번인 곳입니다. 시험 삼아 전부 훑었더니
+# 남의 건물 전기가 20여 건(최대 245,594 kWh) 잡혔습니다.
+# 2026-09-13 에 고친 `picked or rows` 폴백과 **같은 종류의 사고**입니다.
+#
+# 명단 29곳 분포 — 0개 14 · 1~5개 8 · 그다음이 9, 13, 28, 33, 62, 166.
+# 5와 9 사이가 비어 있어 10 에서 끊으면 안전합니다.
+SIBLING_MAX = 10
+
+
+def siblings(sigunguCd, bjdongCd, bun, service_key, platGbCd="0",
+             exclude_ji: str = "") -> Dict[str, dict]:
+    """같은 본번의 **다른 지번**들. `ji` 를 빼고 한 번만 호출합니다.
+
+    부번을 1~20 으로 두드리면 호출이 20배입니다. `ji` 를 빼면 한 번에
+    다 옵니다(원오사 375 -> 375, 375-3 이 함께. 2026-10-24 확인).
+
+    {"0003": {"지번": "375-3", "연면적": 336.9, "주용도": "제2종근린생활시설",
+              "사용승인일": "20161221", "동수": 1}} 꼴입니다.
+    """
+    p = {"sigunguCd": sigunguCd, "bjdongCd": bjdongCd,
+         "platGbCd": str(platGbCd), "bun": str(bun).zfill(4)}
+    rows, _ = portal.fetch_all(BASE, OP_TITLE, p, service_key, cap=200)
+    here = str(exclude_ji or "").zfill(4)
+    out: Dict[str, dict] = {}
+    for it in rows:
+        ji = (it.get("ji") or "0000").strip().zfill(4)
+        if ji == here:
+            continue
+        cur = out.setdefault(ji, {
+            "지번": f"{int(str(bun))}" + (f"-{int(ji)}" if int(ji) else ""),
+            "연면적": 0.0, "주용도": "", "사용승인일": "", "동수": 0,
+        })
+        cur["연면적"] += portal.num(it.get("totArea"))
+        cur["동수"] += 1
+        nm = (it.get("mainPurpsCdNm") or "").strip()
+        if nm and nm not in cur["주용도"]:
+            cur["주용도"] = (cur["주용도"] + " / " + nm).strip(" /")
+        ap = (it.get("useAprDay") or "").strip()
+        if ap and (not cur["사용승인일"] or ap < cur["사용승인일"]):
+            cur["사용승인일"] = ap
+    return {k: v for k, v in out.items() if v["연면적"] > 0}
+
+
 def summarize(dongs: List[Dong]) -> dict:
     """동 목록에서 사찰 진단에 필요한 것만 뽑습니다."""
     trad = [d for d in dongs if d.is_traditional]

@@ -252,6 +252,14 @@ elif submitted and not st.session_state.error:
     st.warning("찾으시는 주소가 없습니다. 동 이름만 넣고 다시 해보세요. 예: 은평구 구산동")
 
 
+KST = dt.timezone(dt.timedelta(hours=9))
+
+
+def _kst(ts: float):
+    """시각을 한국 시각으로. 배포 서버가 UTC 라 그냥 쓰면 9시간 어긋납니다."""
+    return dt.datetime.fromtimestamp(ts, dt.timezone.utc).astimezone(KST)
+
+
 def running_version() -> str:
     """지금 돌고 있는 판. 커밋 번호와 날짜를 짧게.
 
@@ -262,6 +270,10 @@ def running_version() -> str:
 
     `git` 명령을 부르지 않습니다. 배포 서버에 git 이 없을 수 있어
     `.git` 파일을 직접 읽고, 그것도 없으면 코드 파일의 시각을 씁니다.
+
+    **시각은 한국 시각으로 못박습니다.** 배포 서버가 UTC 라 그냥 찍으면
+    9시간 이르게 나옵니다(22:08 이 13:08 로). 교수님 컴퓨터에서는 맞고
+    웹에서만 틀려서 더 헷갈립니다.
     """
     here = os.path.dirname(os.path.abspath(__file__))
     try:
@@ -273,15 +285,14 @@ def running_version() -> str:
                           encoding="utf-8").read().strip()
         else:
             sha = head
-        when = dt.datetime.fromtimestamp(
-            os.path.getmtime(os.path.join(here, "app.py")))
-        return f"{sha[:7]} · {when:%Y-%m-%d %H:%M}"
+        when = _kst(os.path.getmtime(os.path.join(here, "app.py")))
+        return f"{sha[:7]} · {when:%Y-%m-%d %H:%M} KST"
     except Exception:
         pass
     try:
         newest = max(os.path.getmtime(os.path.join(here, f))
                      for f in os.listdir(here) if f.endswith(".py"))
-        return f"{dt.datetime.fromtimestamp(newest):%Y-%m-%d %H:%M} 판"
+        return f"{_kst(newest):%Y-%m-%d %H:%M} KST 판"
     except Exception:
         return "판 알 수 없음"
 

@@ -18,4 +18,5 @@ __pycache__/
 # streamlit 이 만든 바로가기 (남의 컴퓨터에선 깨짐)
 .agents/
 .claude/skills/
+.claude/launch.json
 원단위_배수.csv

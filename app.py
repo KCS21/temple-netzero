@@ -87,10 +87,11 @@ def run_search(keyword, page):
     try:
         rows, total = juso.search(keyword, CONFM_KEY, page=page, per_page=PER_PAGE)
     except juso.JusoError as e:
-        st.session_state.update(rows=[], total=0, error=str(e))
+        st.session_state.update(rows=[], total=0, error=str(e), searched=True)
         return
     st.session_state.update(rows=rows, total=total, page=page, kw=keyword,
-                            picked=None, error=None, bld=None, diag=None)
+                            picked=None, error=None, bld=None, diag=None,
+                            searched=True)
 
 
 with st.form("search"):
@@ -104,12 +105,33 @@ if submitted:
     run_search(keyword, 1)
 if st.session_state.error:
     st.error(st.session_state.error)
+    # 0건일 때도 「없다」가 아니라 「이름이 등록 안 됐다」일 수 있습니다.
+    # 원오사(계룡)가 그랬습니다.
+    if st.session_state.get("searched"):
+        st.warning(
+            "**절 이름으로 찾으셨다면, 이름이 등록되지 않은 절은 "
+            "여기 나오지 않습니다.**"
+            + _NL + _NL +
+            "지도 앱에서 주소를 확인해 **주소로** 찾아 주세요."
+        )
 
 rows = st.session_state.rows
 if rows:
     total, page = st.session_state.total, st.session_state.page
     last = (total + PER_PAGE - 1) // PER_PAGE
-    st.markdown(f"**{total}건**을 찾았습니다. 아래에서 고르세요.")
+    # 「1건」이 「유일」로 읽히면 안 됩니다. 도로명주소 검색은 **건물 이름이
+    # 등록된 절만** 찾습니다. 원오사(계룡)는 이름이 등록되지 않아 부산 것 한 건만
+    # 나왔고, 교수님이 지도 앱으로 직접 찾아야 했습니다.
+    _by_name = any(r.name_hit for r in rows)
+    if _by_name:
+        st.markdown(f"**건물 이름이 등록된 {total}곳**을 찾았습니다. 아래에서 고르세요.")
+        st.warning(
+            "**이름이 등록되지 않은 같은 이름의 절은 여기 나오지 않습니다.**"
+            + _NL + _NL +
+            "찾는 절이 아니면 지도 앱에서 주소를 확인해 **주소로** 찾아 주세요."
+        )
+    else:
+        st.markdown(f"**{total}건**을 찾았습니다. 아래에서 고르세요.")
     choice = st.radio("주소 선택", options=list(range(len(rows))),
                       format_func=lambda i: rows[i].label(),
                       index=None, label_visibility="collapsed")
@@ -305,20 +327,34 @@ if picked:
                     es["total"], gs["total"], area,
                     region.of(picked.jibunAddr),
                     parking_area=ds0["parking_area"],
+                    trad_count=ds0["trad_count"],
                 )
             if use.area:
                 reg = region.label(picked.jibunAddr)
-                if use.has_ratio:
-                    st.markdown(
-                        f"**면적당 에너지 {use.per:,.0f} kWh/m²** — "
-                        f"{reg} 사찰 원단위 {use.base} 대비 "
-                        f"**{use.ratio:.2f}배**"
+                if use.suspect:
+                    # 「높다」가 아니라 「못 믿는다」입니다. 배수를 내지 않습니다.
+                    st.warning(
+                        f"**배수를 내지 않았습니다 — {em.SUSPECT_NOTE}**"
+                        + _NL + _NL +
+                        f"전통 전각이 한 동도 없는데 면적당 에너지가 "
+                        f"{use.per:,.0f} kWh/m² 로 지역 원단위({use.base})의 "
+                        f"{use.per / use.base:.1f}배입니다. "
+                        + em.SUSPECT_TEXT
                     )
+                elif use.has_ratio:
+                    # 배수(효율)와 총량(규모)을 **나란히** 둡니다.
+                    # 배수만 보면 작은 절부터 가게 됩니다.
+                    q1, q2 = st.columns(2)
+                    q1.metric(f"면적당 에너지 ({reg} 원단위 {use.base} 대비)",
+                              f"{use.per:,.0f} kWh/m²", f"{use.ratio:.2f}배",
+                              delta_color="off")
+                    q2.metric("연간 총에너지", f"{use.total_kwh:,.0f} kWh")
                     st.caption(em.EUI_NOTE + "  출처: " + em.EUI_SOURCE)
                 else:
                     st.markdown(
-                        f"**전기만 {use.elec_per:,.0f} kWh/m²** — "
-                        f"배수는 내지 않았습니다. {use.note}"
+                        f"**전기만 {use.elec_per:,.0f} kWh/m²** · "
+                        f"연간 전기 **{use.elec_kwh:,.0f} kWh** — "
+                        f"배수와 총에너지는 내지 않았습니다. {use.note}"
                     )
                     if use.note == em.NO_HEAT_NOTE:
                         st.warning(
@@ -388,10 +424,9 @@ if picked:
                         "신식 동수": str(ds.get("modern_count", "")),
                         "태양광 필요용량(kW)": f"{r.solar_kw:.0f}",
                         "신뢰도": lvl,
-                        # 자동 판정을 멈췄습니다. 고정 200 기준이 없어졌고
-                        # 새 구간은 50곳 분포를 본 뒤에 긋습니다(지시 04 5번).
-                        # 사람이 손으로 채울 수 있게 칸은 남겨 둡니다.
-                        "대장누락 의심": "",
+                        # 되살렸습니다(지시 05 6번).
+                        # 전통 0동 + 배수 3.0 초과일 때만 붙습니다.
+                        "대장누락 의심": "예" if use.suspect else "",
                         "제외된 자료(건)": str(data.get("dropped", 0)),
                         "전력 기준": r.elec_basis,
                         "도시가스 기준": r.gas_basis,
@@ -585,6 +620,60 @@ if not SHARE:
             "신뢰도": [r.get("신뢰도", "") for r in saved],
             "누락 의심": [r.get("대장누락 의심", "") for r in saved],
         })
+
+        # ── 두 축 — 배수(효율) x 총량(규모) ──
+        #
+        # **여러 절을 모아 볼 때만** 네 칸으로 나눕니다. 총량 기준선이
+        # 표본의 중간값이라 한 곳만 보고는 정할 수 없습니다.
+        # 단일 사찰 화면에는 판정 문구를 붙이지 않습니다.
+        _rr = batch.ratio_rows()
+        _med, _usable = batch.classify(_rr)      # CSV 와 같은 함수를 씁니다
+        _pts = [(r.get("사찰", ""), q, t) for q, t, r in _usable]
+
+        if len(_pts) >= 3:
+            st.markdown("##### 두 축으로 보기 — 효율과 규모")
+            st.markdown(
+                '<p class="hint">처방이 다르므로 섞지 않습니다. '
+                "<b>효율 개선 후보</b>는 낭비를 줄이는 일이고, "
+                "<b>설비·태양광 후보</b>는 이미 효율적이지만 규모가 커서 "
+                "설비를 바꿀 값어치가 있는 절입니다.</p>",
+                unsafe_allow_html=True)
+
+            import altair as alt
+            import pandas as pd
+            df = pd.DataFrame(
+                [{"사찰": n, "배수": q, "총에너지(kWh)": t,
+                  "분류": em.quadrant(q, t, _med)} for n, q, t in _pts])
+            base = alt.Chart(df)
+            pts = base.mark_circle(size=120, opacity=0.8).encode(
+                x=alt.X("배수:Q", title="지역 원단위 대비 배수"),
+                y=alt.Y("총에너지(kWh):Q", title="연간 총에너지 (kWh, 로그)",
+                        scale=alt.Scale(type="log")),
+                color=alt.Color("분류:N", title=""),
+                tooltip=["사찰", "배수", "총에너지(kWh)", "분류"],
+            )
+            vline = base.mark_rule(strokeDash=[6, 4]).encode(
+                x=alt.datum(em.QUAD_RATIO))
+            hline = base.mark_rule(strokeDash=[6, 4]).encode(
+                y=alt.datum(_med))
+            st.altair_chart((pts + vline + hline).properties(height=360),
+                            width="stretch")
+            st.caption(
+                f"세로 점선 = 배수 {em.QUAD_RATIO:.1f} (원단위 자체가 전국 중간값) · "
+                f"가로 점선 = 이 {len(_pts)}곳의 총에너지 중간값 "
+                f"{_med:,.0f} kWh. **가로선은 절대 기준이 아니라 "
+                "모인 절들 안에서의 상대적인 선입니다.**")
+
+            _cnt = df["분류"].value_counts().to_dict()
+            st.table({
+                "분류": list(em.QUAD.values()),
+                "곳": [_cnt.get(v, 0) for v in em.QUAD.values()],
+                "사찰": [" · ".join(df[df["분류"] == v]["사찰"].tolist()) or "—"
+                         for v in em.QUAD.values()],
+            })
+        elif _rr:
+            st.caption("배수와 총에너지가 함께 나온 곳이 3곳을 넘으면 "
+                       "두 축 그림이 나옵니다.")
 
         with st.expander("나눠 돌린 기록 합치기"):
             st.markdown('<p class="hint">여러 분이 나눠 조회하셨다면 각자의 '

@@ -233,6 +233,7 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
     use = em.area_use(
         es["total"], gs["total"], s.get("area_excl_parking", area),
         region.of(j.jibunAddr), parking_area=s.get("parking_area", 0.0),
+        trad_count=s.get("trad_count", -1) if s else -1,
     )
 
     why = ""
@@ -255,9 +256,9 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
         "신식 동수": str(s.get("modern_count", 0)),
         "태양광 필요용량(kW)": f"{r.solar_kw:.0f}",
         "신뢰도": lvl,
-        # 자동 판정을 멈췄습니다. 고정 200 기준이 없어졌고 새 구간은
-        # 50곳 분포를 본 뒤에 긋습니다(지시 04 5번).
-        "대장누락 의심": "",
+        # 되살렸습니다(지시 05 6번). 전통 0동 + 배수 3.0 초과일 때만.
+        # 고정 200 기준이 아니라 지역 원단위 대비 배수로 봅니다.
+        "대장누락 의심": "예" if use.suspect else "",
         "제외된 자료(건)": str(data.get("dropped", 0)),
         "실패사유": why,
         "전력 기준": r.elec_basis, "도시가스 기준": r.gas_basis, "GWP": r.gwp,
@@ -269,6 +270,7 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
         "지역(원단위)": use.region,
         "주차장 제외 연면적(m2)": f"{use.area:.1f}" if use.area else "",
         "옥내 주차장(m2)": f"{use.parking_area:.1f}" if use.parking_area else "",
+        "연간 총에너지(kWh)": f"{use.total_kwh:.0f}" if use.total_kwh else "",
         "면적당 에너지(kWh/m2)": f"{use.per:.0f}" if use.per else "",
         "사찰 원단위": str(use.base) if use.base else "",
         "원단위 대비 배수": f"{use.ratio:.2f}" if use.has_ratio else "",
@@ -288,7 +290,8 @@ RATIO_COLUMNS = [
     "연면적(m2)", "옥내 주차장(m2)", "주차장 제외 연면적(m2)",
     "전기(kWh)", "가스(kWh)",
     "면적당 전기(kWh/m2)", "면적당 에너지(kWh/m2)",
-    "사찰 원단위", "원단위 대비 배수", "배수 미산출 사유",
+    "연간 총에너지(kWh)", "총량_순위",
+    "사찰 원단위", "원단위 대비 배수", "분류", "배수 미산출 사유",
     "동수", "전통 동수", "신식 동수", "신뢰도", "실패사유",
 ]
 
@@ -324,6 +327,52 @@ def save_ratio(row: dict, folder: str = "") -> int:
         w.writeheader()
         w.writerows(keep)
     return len(keep)
+
+
+def _num(v) -> float:
+    try:
+        return float(str(v).replace(",", "").strip() or 0)
+    except ValueError:
+        return 0.0
+
+
+def classify(rows: List[dict]):
+    """(총량 중간값, [(배수, 총량, 줄), ...]) 를 돌려줍니다.
+
+    **배수와 총량이 둘 다 있는 줄만** 셈에 넣습니다. 네 칸으로 나눌 수 있는
+    줄이 곧 표본이기 때문입니다. CSV 와 화면이 **같은 함수를 써야** 분류가
+    어긋나지 않습니다. 한쪽은 69줄로, 한쪽은 16줄로 중간값을 내다가
+    같은 사찰이 다른 칸에 들어간 일이 있었습니다(2026-10-24).
+    """
+    usable = [(_num(r.get("원단위 대비 배수")),
+               _num(r.get("연간 총에너지(kWh)")), r) for r in rows]
+    usable = [(q, t, r) for q, t, r in usable if q > 0 and t > 0]
+    return em.total_median([t for _, t, _ in usable]), usable
+
+
+def rank_ratio(folder: str = "") -> dict:
+    """총량 순위와 네 칸 분류를 다시 매깁니다.
+
+    **총량 기준선이 표본의 중간값**이라, 사찰이 하나 늘 때마다 전체를
+    다시 매겨야 합니다. 한 곳을 저장할 때마다 부릅니다.
+    """
+    rows = ratio_rows(folder)
+    if not rows:
+        return {"median": 0.0, "n": 0}
+
+    med, _usable = classify(rows)
+    # 순위는 총량이 있는 줄 전부에 매깁니다(분류와 기준이 다릅니다).
+    order = sorted(rows, key=lambda r: -_num(r.get("연간 총에너지(kWh)")))
+    rank = {id(r): i for i, r in enumerate(order, 1)}
+    for r in rows:
+        tot = _num(r.get("연간 총에너지(kWh)"))
+        r["총량_순위"] = str(rank[id(r)]) if tot else ""
+        r["분류"] = em.quadrant(_num(r.get("원단위 대비 배수")), tot, med)
+    with io.open(ratio_path(folder), "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=RATIO_COLUMNS, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(rows)
+    return {"median": med, "n": len(rows)}
 
 
 def ratio_csv_bytes(folder: str = "") -> bytes:
@@ -368,6 +417,7 @@ def run(
         why = (row.get("실패사유") or "").strip()
         store.save(row, folder)          # 한 곳씩 바로 저장 = 끊겨도 이어짐
         save_ratio(row, folder)          # 배수는 별도 파일에(지시 04 10번)
+        rank_ratio(folder)               # 총량 순위·분류 다시 매김(지시 05 5번)
         if why:
             failed.append((t, why))
         else:

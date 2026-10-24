@@ -206,6 +206,68 @@ def main() -> int:
     ok("정상 조합에는 경고 없음",
        not any("있기 어려운 용도" in m for m in bldrgst.checks(clean)))
 
+    # ── 7. 면적 미등재 의심 (지시 05 6번) ──
+    print()
+    print("  [7] 전통 0동 + 배수 3.0 초과는 배수를 내지 않는다")
+    # 보현사 - 690.2 m2 에 1,652 kWh/m2 = 16.04배
+    u = em.area_use(690.2 * 1652, 1.0, 690.2, "중부", trad_count=0)
+    ok("배수를 내지 않음", not u.has_ratio and u.ratio == 0)
+    ok("의심 표시", u.suspect)
+    ok("사유가 면적미등재의심", u.note == em.SUSPECT_NOTE, u.note)
+    u = em.area_use(690.2 * 1652, 1.0, 690.2, "중부", trad_count=12)
+    ok("전통 전각이 있으면 배수를 냄", u.has_ratio and not u.suspect,
+       f"{u.ratio:.2f}배")
+    # 봉은사 2.43배 - 3.0 이하라 전통 0동이어도 통과
+    u = em.area_use(2310661, 2630415, 19773.6, "중부", trad_count=0)
+    ok("3.0 이하는 전통 0동이어도 배수를 냄", u.has_ratio and not u.suspect,
+       f"{u.ratio:.2f}배")
+    u = em.area_use(100000, 1.0, 1000, "중부", trad_count=-1)
+    ok("전통 동수를 모르면 의심하지 않음", not u.suspect, f"{u.ratio:.2f}배")
+
+    # ── 8. 연간 총에너지와 네 칸 분류 (지시 05 4·5번) ──
+    print()
+    print("  [8] 연간 총에너지")
+    u = em.area_use(208412, 229257, 2658.3, "중부")
+    ok("전기+가스", round(u.total_kwh) == 437669, f"{u.total_kwh:,.0f}")
+    u = em.area_use(1037930, 0, 7545.2, "중부")
+    ok("가스 0 이면 총에너지 칸을 비움", u.total_kwh == 0,
+       "전기만 보여 줍니다")
+    u = em.area_use(100000, 0, 1000, "중부",
+                    other_kwh=em.fuel_kwh("등유(Kerosene)", 5000))
+    ok("현장 조사값이 있으면 더해짐", u.total_kwh > 100000, f"{u.total_kwh:,.0f}")
+
+    print()
+    print("  [8-1] 두 축 네 칸 분류")
+    ok("중간값", em.total_median([10, 20, 30, 40]) == 25)
+    ok("0 과 빈 값은 빼고 셈", em.total_median([0, None, 10, 30]) == 20)
+    ok("표본이 없으면 0", em.total_median([]) == 0)
+    cases = [((1.5, 300, 200), "효율 개선 후보"),
+             ((1.5, 100, 200), "소규모 · 효율 점검"),
+             ((0.8, 300, 200), "설비·태양광 후보"),
+             ((0.8, 100, 200), "후순위"),
+             ((1.0, 200, 200), "효율 개선 후보")]
+    bad = [f"{a} -> {em.quadrant(*a)}" for a, want in cases
+           if em.quadrant(*a) != want]
+    ok("네 칸이 맞게 갈림", not bad, " / ".join(bad))
+    ok("배수가 없으면 분류하지 않음", em.quadrant(0, 300, 200) == "")
+    ok("총량이 없으면 분류하지 않음", em.quadrant(1.5, 0, 200) == "")
+
+    # ── 9. 상업·공공 배출계수 (지시 05 7번) ──
+    print()
+    print("  [9] CH4 상업·공공 열 (별표10)")
+    ok("도시가스 CH4 5", em.FUELS["도시가스/LNG"].ch4 == 5)
+    ok("LPG 프로판·부탄 CH4 5",
+       em.FUELS["LPG-프로판(LPG1호)"].ch4 == 5
+       and em.FUELS["LPG-부탄(LPG3호)"].ch4 == 5)
+    ok("등유 CH4 10", em.FUELS["등유(Kerosene)"].ch4 == 10)
+    ok("경유는 그대로 3 (이동연소 전용)", em.FUELS["경유(Diesel)"].ch4 == 3)
+    ok("휘발유는 그대로 3 (이동연소)", em.FUELS["휘발유(Gasoline)"].ch4 == 3)
+    ok("N2O 는 넷 다 안 바뀜",
+       em.FUELS["도시가스/LNG"].n2o == 0.1 and em.FUELS["등유(Kerosene)"].n2o == 0.6)
+    g = em.burn("도시가스/LNG", 17127.4).ar5_t
+    ok("수국사 도시가스 17,127.4 Nm3 = 37.30 t", abs(g - 37.30) < 0.01,
+       f"{g:.3f} t")
+
     print()
     print(LINE)
     if _fail:

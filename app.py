@@ -92,6 +92,9 @@ except keys.KeyError_ as e:
 
 for k, v in [("rows", []), ("total", 0), ("page", 1), ("kw", ""),
              ("picked", None), ("error", None), ("bld", None), ("diag", None),
+             # 1단계 라디오에서 **방금 고른 줄**. 이것이 없으면 아래 라디오가
+             # 다시 그려질 때마다 picked 를 제 값으로 되돌려 놓습니다.
+             ("addr_applied", None),
              ("xlsx", None),
              # 지도 검색(작업지시 07 ①) · 옆 지번(②) · 묶기(③)
              ("places", []), ("places_err", ""), ("kakao_done", ""),
@@ -117,6 +120,7 @@ def run_search(keyword, page):
         return
     st.session_state.update(rows=rows, total=total, page=page, kw=keyword,
                             picked=None, error=None, bld=None, diag=None,
+                            addr_applied=None, sibs=None, merge_state=None,
                             searched=True)
 
 
@@ -216,8 +220,14 @@ if rows:
     choice = st.radio("주소 선택", options=list(range(len(rows))),
                       format_func=lambda i: rows[i].label(),
                       index=None, label_visibility="collapsed")
-    if choice is not None and st.session_state.picked is not rows[choice]:
-        st.session_state.update(picked=rows[choice], bld=None, diag=None)
+    # **고르는 순간에만** 듣습니다. 예전에는 `picked is not rows[choice]` 로
+    # 보았는데, 옆 지번으로 바꾸면 picked 가 목록에 없는 객체가 되어 조건이
+    # 늘 참이 됩니다. 그래서 569 로 들어가도 **다음 그리기에서 569-1 로
+    # 되돌아왔습니다**(작업지시 08 에서 찾음).
+    if choice is not None and st.session_state.get("addr_applied") != choice:
+        st.session_state.update(picked=rows[choice], bld=None, diag=None,
+                                addr_applied=choice, sibs=None,
+                                merge_state=None)
 
     _kakao_block()
 
@@ -242,11 +252,98 @@ elif submitted and not st.session_state.error:
 
 
 # ═══════════ 2단계 — 건물 정보 ═══════════
+
+def _sibling_block(j, year):
+    """같은 본번의 다른 지번 찾기 (작업지시 07 ②).
+
+    **누를 때만** 찾고, **회원이 고릅니다.** 화면이 알아서 다른 지번으로
+    넘어가지 않습니다. 지번이 너무 많으면 목록을 만들지 않고 다음 행동을
+    알려 줍니다 — 청정사 본번 0001 에 89개가 있었고, 훑어 보니 남의 건물
+    전기가 20여 건 잡혔습니다.
+    """
+    p = j.building_params()
+    st.markdown('<p class="hint">절이 <b>여러 지번에 걸쳐</b> 있고 전기가 '
+                "그중 <b>한 지번으로만</b> 들어오는 일이 있습니다. "
+                "원오사는 법당(375)에 자료가 없고 숙소(375-3)에 있었습니다.</p>",
+                unsafe_allow_html=True)
+    if st.button(f"같은 번지({int(p['bun'])})의 다른 지번도 찾아보기",
+                 key="sib_go", width="stretch"):
+        try:
+            st.session_state.sibs = bldrgst.siblings(
+                p["sigunguCd"], p["bjdongCd"], p["bun"], SERVICE_KEY,
+                p["platGbCd"], p["ji"])
+            st.session_state.sibs_err = ""
+        except portal.PortalError as e:
+            st.session_state.sibs = None
+            st.session_state.sibs_err = str(e)
+
+    if st.session_state.get("sibs_err"):
+        st.error(st.session_state.sibs_err)
+        return
+    sibs = st.session_state.get("sibs")
+    if sibs is None:
+        return
+    if not sibs:
+        st.info("이 본번에는 건물이 있는 다른 지번이 없습니다. "
+                "**고지서에 적힌 주소**로 찾아 보십시오.")
+        return
+    if len(sibs) > bldrgst.SIBLING_MAX:
+        st.warning(
+            f"같은 번지({int(p['bun'])})에 다른 지번이 **{len(sibs)}개** 있어 "
+            "자동 목록을 만들지 않습니다. **남의 건물이 섞일 수 있기 "
+            "때문입니다.**" + _NL + _NL +
+            "**고지서에 적힌 주소나 지도 앱에서 지번을 확인해 직접 넣어 주세요.**"
+        )
+        return
+
+    st.markdown(f"**건물이 있는 지번 {len(sibs)}곳**을 찾았습니다. "
+                "어느 것이 이 절인지 골라 주세요.")
+    keys_ = sorted(sibs)
+    st.table({
+        "지번": [sibs[k].get("표시") or sibs[k]["지번"] for k in keys_],
+        "연면적": [f'{sibs[k]["연면적"]:,.1f} m²' for k in keys_],
+        "주용도": [sibs[k]["주용도"] or "-" for k in keys_],
+        "사용승인일": [sibs[k]["사용승인일"] or "-" for k in keys_],
+        "동수": [f'{sibs[k]["동수"]}동' for k in keys_],
+    })
+    st.caption("주용도는 **건축물대장 기준**입니다. 법당이 단독주택으로, "
+               "숙소가 근린생활시설로 올라가 있기도 합니다(원오사). "
+               "주용도를 보고 전각 이름을 짐작하지 마십시오.")
+    pick = st.radio("지번 선택", options=keys_,
+                    format_func=lambda k: f'{sibs[k].get("표시") or sibs[k]["지번"]}'
+                                          f'  ·  {sibs[k]["연면적"]:,.1f} m²',
+                    index=None, label_visibility="collapsed", key="sib_pick")
+    if pick is not None:
+        name = sibs[pick].get("표시") or sibs[pick]["지번"]
+        # **주소 검색으로 되돌아가지 않습니다**(작업지시 08 ①).
+        # 강릉 삼산리 569 는 도로명주소 API 에 아예 없어서, 다시 찾으면
+        # 569-1 만 돌아오고 영영 못 들어갑니다. 이미 가진 행정구역코드에
+        # 번·지만 갈아 끼워 건축물대장·건물에너지를 바로 부릅니다.
+        if st.button(f"**{name}** 이 지번으로 조회",
+                     key="sib_apply", width="stretch"):
+            st.session_state.update(
+                picked=juso.sibling(j, int(p["bun"]), int(pick)),
+                bld=None, diag=None, sibs=None, merge_state=None)
+            st.rerun()
+
+
 picked = st.session_state.picked
 if picked:
     st.divider()
     st.subheader(picked.jibunAddr + ("  ·  산 지번" if picked.is_mountain else ""))
-    st.markdown(f'<p class="hint">도로명 {picked.roadAddr}</p>', unsafe_allow_html=True)
+    # 옆 지번으로 들어온 것은 **도로명이 없습니다.** 지어내지 않고
+    # 어디서 왔는지를 밝힙니다(작업지시 08 ②).
+    _src = (picked.raw or {}).get("출처", "")
+    if picked.roadAddr:
+        st.markdown(f'<p class="hint">도로명 {picked.roadAddr}</p>',
+                    unsafe_allow_html=True)
+    elif _src:
+        st.markdown(
+            f'<p class="hint"><b>{_src}</b> — 기준 '
+            f'{(picked.raw or {}).get("기준지번", "")}<br>'
+            "이 지번에는 도로명주소가 없어 주소 검색으로는 찾을 수 없습니다. "
+            "건축물대장·건물에너지는 지번으로 바로 조회합니다.</p>",
+            unsafe_allow_html=True)
     if picked.name_hit:
         st.warning("""**절 이름으로 찾은 주소입니다.** 같은 이름의 다른 절일 수 있으니 위 주소가 맞는지 확인해 주세요.
 
@@ -271,6 +368,12 @@ if picked:
     dongs, recap, jjg = st.session_state.bld
     if not dongs:
         st.warning("건축물대장에 등록된 건물이 없습니다. 미등재 전각일 수 있으니 방문해서 확인해야 합니다.")
+        # **여기가 회원이 막히는 자리입니다.** 예전에는 에너지 조회를
+        # 끝까지 돌려야 옆 지번 단추가 나왔는데, 건물이 없으면 조회할
+        # 것도 없습니다. 현덕사가 그랬습니다 - 569-1 에는 건물이 없고
+        # 바로 옆 569 에 8동 636㎡ 가 있었습니다(작업지시 08).
+        st.markdown("**같은 번지의 다른 지번에 건물이 있을 수 있습니다.**")
+        _sibling_block(picked, None)
     else:
         s = bldrgst.summarize(dongs)
         zones = bldrgst.restricted(jjg)
@@ -335,73 +438,6 @@ if picked:
                 st.info(msg + "\n\n규제 해당 여부는 관할 지자체 질의로만 확정됩니다.")
 
 
-def _sibling_block(j, year):
-    """같은 본번의 다른 지번 찾기 (작업지시 07 ②).
-
-    **누를 때만** 찾고, **회원이 고릅니다.** 화면이 알아서 다른 지번으로
-    넘어가지 않습니다. 지번이 너무 많으면 목록을 만들지 않고 다음 행동을
-    알려 줍니다 — 청정사 본번 0001 에 89개가 있었고, 훑어 보니 남의 건물
-    전기가 20여 건 잡혔습니다.
-    """
-    p = j.building_params()
-    st.markdown('<p class="hint">절이 <b>여러 지번에 걸쳐</b> 있고 전기가 '
-                "그중 <b>한 지번으로만</b> 들어오는 일이 있습니다. "
-                "원오사는 법당(375)에 자료가 없고 숙소(375-3)에 있었습니다.</p>",
-                unsafe_allow_html=True)
-    if st.button(f"같은 번지({int(p['bun'])})의 다른 지번도 찾아보기",
-                 key="sib_go", width="stretch"):
-        try:
-            st.session_state.sibs = bldrgst.siblings(
-                p["sigunguCd"], p["bjdongCd"], p["bun"], SERVICE_KEY,
-                p["platGbCd"], p["ji"])
-            st.session_state.sibs_err = ""
-        except portal.PortalError as e:
-            st.session_state.sibs = None
-            st.session_state.sibs_err = str(e)
-
-    if st.session_state.get("sibs_err"):
-        st.error(st.session_state.sibs_err)
-        return
-    sibs = st.session_state.get("sibs")
-    if sibs is None:
-        return
-    if not sibs:
-        st.info("이 본번에는 건물이 있는 다른 지번이 없습니다. "
-                "**고지서에 적힌 주소**로 찾아 보십시오.")
-        return
-    if len(sibs) > bldrgst.SIBLING_MAX:
-        st.warning(
-            f"같은 번지({int(p['bun'])})에 다른 지번이 **{len(sibs)}개** 있어 "
-            "자동 목록을 만들지 않습니다. **남의 건물이 섞일 수 있기 "
-            "때문입니다.**" + _NL + _NL +
-            "**고지서에 적힌 주소나 지도 앱에서 지번을 확인해 직접 넣어 주세요.**"
-        )
-        return
-
-    st.markdown(f"**건물이 있는 지번 {len(sibs)}곳**을 찾았습니다. "
-                "어느 것이 이 절인지 골라 주세요.")
-    keys_ = sorted(sibs)
-    st.table({
-        "지번": [sibs[k]["지번"] for k in keys_],
-        "연면적": [f'{sibs[k]["연면적"]:,.1f} m²' for k in keys_],
-        "주용도": [sibs[k]["주용도"] or "-" for k in keys_],
-        "사용승인일": [sibs[k]["사용승인일"] or "-" for k in keys_],
-        "동수": [f'{sibs[k]["동수"]}동' for k in keys_],
-    })
-    st.caption("주용도는 **건축물대장 기준**입니다. 법당이 단독주택으로, "
-               "숙소가 근린생활시설로 올라가 있기도 합니다(원오사). "
-               "주용도를 보고 전각 이름을 짐작하지 마십시오.")
-    pick = st.radio("지번 선택", options=keys_,
-                    format_func=lambda k: f'{sibs[k]["지번"]}  ·  '
-                                          f'{sibs[k]["연면적"]:,.1f} m²',
-                    index=None, label_visibility="collapsed", key="sib_pick")
-    if pick is not None:
-        base = j.jibunAddr.rsplit(" ", 1)[0]
-        if st.button(f"**{sibs[pick]['지번']}** 로 다시 찾기",
-                     key="sib_apply", width="stretch"):
-            run_search(f"{base} {sibs[pick]['지번']}", 1)
-            st.session_state.sibs = None
-            st.rerun()
 
 
 def _merge_cols() -> dict:
@@ -751,6 +787,9 @@ if picked:
                         "용도지역": " / ".join(jjg),
                         "시군구": pp["sigunguCd"], "법정동": pp["bjdongCd"],
                         "번": pp["bun"], "지": pp["ji"], "대지구분": pp["platGbCd"],
+                        # 옆 지번에서 들어왔으면 그 사실을 남깁니다. 이 지번은
+                        # 도로명주소가 없어 **주소로는 다시 못 찾습니다**.
+                        "조회경로": (picked.raw or {}).get("출처", ""),
                         **_merge_cols(),
                     })
                 except store.StoreError as e:
@@ -880,6 +919,7 @@ if picked and st.session_state.diag:
                     out, temple, year, _elec, _gas,
                     gas_basis=gas_basis, extra=extra,
                     road_addr=picked.roadAddr, jibun_addr=picked.jibunAddr,
+                    route=(picked.raw or {}).get("출처", ""),
                     solar_kwh=solar, solar_self_kwh=solar_self,
                     sources=_srcs, merge_basis=_basis)
                 blob = io.open(path, "rb").read()

@@ -121,6 +121,45 @@ class Juso:
         return msgs
 
 
+SIBLING_SRC = "옆 지번에서 고름"
+
+
+def jibun_text(bun, ji, mountain: bool = False) -> str:
+    """본번·부번을 사람이 읽는 지번으로. 부번이 0 이면 본번만."""
+    b, j = int(str(bun) or 0), int(str(ji) or 0)
+    return ("산 " if mountain else "") + (f"{b}-{j}" if j else f"{b}")
+
+
+def sibling(base: "Juso", bun, ji) -> "Juso":
+    """옆 지번을 고른 것. **도로명주소를 다시 찾지 않습니다.**
+
+    강릉 연곡면 삼산리 **569** 는 도로명주소 API 에 **아예 없습니다.**
+    「연곡면 삼산리 569」로 찾아도 569-1 만 돌아옵니다(2026-10-24 확인).
+    도로명주소가 붙은 지번만 들어 있기 때문입니다. 그런데 건축물대장은
+    지번으로 바로 찾히고, 569 에 636㎡ · 연 114,101 kWh 가 있습니다.
+
+    그래서 **다시 찾지 않고** 이미 가진 행정구역코드에 번·지만 갈아
+    끼웁니다. 같은 법정동이므로 admCd 는 그대로입니다.
+
+    도로명은 **비워 둡니다.** 없는 것을 지어내지 않습니다
+    (CLAUDE.md 2장 「모르는 것은 모른다고 표시한다」).
+    """
+    mt = str(base.mtYn).strip() == "1"
+    here = jibun_text(base.lnbrMnnm, base.lnbrSlno, mt)
+    head = base.jibunAddr
+    at = head.find(here)
+    dong = head[:at].rstrip() if at > 0 else head.rsplit(" ", 1)[0]
+    return Juso(
+        jibunAddr=f"{dong} {jibun_text(bun, ji, mt)}",
+        roadAddr="",
+        admCd=base.admCd,
+        lnbrMnnm=str(int(str(bun) or 0)),
+        lnbrSlno=str(int(str(ji) or 0)),
+        mtYn=base.mtYn,
+        raw={"출처": SIBLING_SRC, "기준지번": base.jibunAddr},
+    )
+
+
 def clean_keyword(keyword: str) -> str:
     kw = _SPECIAL.sub(" ", keyword or "")
     kw = _BANNED.sub(" ", kw)

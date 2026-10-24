@@ -274,8 +274,14 @@ def siblings(sigunguCd, bjdongCd, bun, service_key, platGbCd="0",
         ji = (it.get("ji") or "0000").strip().zfill(4)
         if ji == here:
             continue
+        # 「569」와 「569-1」은 **다른 땅**인데 목록에서 나란히 놓으면
+        # 부번이 없는 쪽이 본번처럼 보여 헷갈립니다. 화면에 적을 이름을
+        # 따로 둡니다(작업지시 08 ③). `지번` 은 그대로 둡니다 - 주소를
+        # 만들 때 쓰는 값이라 괄호가 붙으면 안 됩니다.
+        bare = f"{int(str(bun))}"
         cur = out.setdefault(ji, {
-            "지번": f"{int(str(bun))}" + (f"-{int(ji)}" if int(ji) else ""),
+            "지번": bare + (f"-{int(ji)}" if int(ji) else ""),
+            "표시": bare + (f"-{int(ji)}" if int(ji) else " (부번 없음)"),
             "연면적": 0.0, "주용도": "", "사용승인일": "", "동수": 0,
         })
         cur["연면적"] += portal.num(it.get("totArea"))

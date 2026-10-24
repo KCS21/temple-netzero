@@ -129,6 +129,7 @@ def fill(
     solar_self_kwh: float = 0.0,
     sources: Sequence[dict] = (),
     merge_basis: str = "",
+    route: str = "",
 ) -> str:
     """sources 는 지번마다 한 줄입니다(⑧조회근거).
 
@@ -166,7 +167,8 @@ def fill(
     stamp = dt.date.today().strftime("%Y. %m. %d.")
     if SH_SRC in wb.sheetnames:
         _fill_sources(wb[SH_SRC], temple, year, road_addr, stamp,
-                      sources or [{"지번": jibun_addr}], merge_basis, activities)
+                      sources or [{"지번": jibun_addr}], merge_basis, activities,
+                      route)
 
     if SH_INFO in wb.sheetnames:
         info = wb[SH_INFO]
@@ -235,10 +237,14 @@ def preview(elec_kwh: float, activities: Sequence[Activity],
 
 
 def _fill_sources(ws, temple, year, road_addr, stamp, sources,
-                  merge_basis, activities) -> None:
+                  merge_basis, activities, route="") -> None:
     """⑧조회근거 를 채웁니다. 숫자가 어디서 왔는지 남기는 자리입니다."""
     ws["C5"] = temple
-    ws["C6"] = road_addr
+    # 옆 지번에서 고른 지번은 **도로명주소가 없습니다**(작업지시 08 ②).
+    # 강릉 삼산리 569 가 그렇습니다. 칸을 비워 두면 나중에 보는 사람이
+    # 빠뜨린 줄 알므로, 어떤 길로 조회했는지를 대신 적습니다.
+    ws["C6"] = road_addr or (f"{route} (이 지번에는 도로명주소가 없습니다)"
+                             if route else "")
     ws["C7"] = f"{year}년 사용량"
     ws["C8"] = f"{stamp} 조회"
     ws["C10"] = {

@@ -252,6 +252,59 @@ elif submitted and not st.session_state.error:
     st.warning("찾으시는 주소가 없습니다. 동 이름만 넣고 다시 해보세요. 예: 은평구 구산동")
 
 
+def running_version() -> str:
+    """지금 돌고 있는 판. 커밋 번호와 날짜를 짧게.
+
+    **왜 보여 주는가** — 올렸는데 사이트가 옛 코드인 일이 하루에 세 번
+    있었습니다(2026-10-24). Streamlit 은 `app.py` 만 다시 돌리고 불러온
+    모듈은 그대로 두기 때문에, 겉보기로는 새 판인지 알 수 없습니다.
+    이 줄이 있으면 **열어 보는 즉시** 알 수 있습니다.
+
+    `git` 명령을 부르지 않습니다. 배포 서버에 git 이 없을 수 있어
+    `.git` 파일을 직접 읽고, 그것도 없으면 코드 파일의 시각을 씁니다.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    try:
+        head = io.open(os.path.join(here, ".git", "HEAD"),
+                       encoding="utf-8").read().strip()
+        if head.startswith("ref:"):
+            ref = head.split(" ", 1)[1].strip()
+            sha = io.open(os.path.join(here, ".git", ref),
+                          encoding="utf-8").read().strip()
+        else:
+            sha = head
+        when = dt.datetime.fromtimestamp(
+            os.path.getmtime(os.path.join(here, "app.py")))
+        return f"{sha[:7]} · {when:%Y-%m-%d %H:%M}"
+    except Exception:
+        pass
+    try:
+        newest = max(os.path.getmtime(os.path.join(here, f))
+                     for f in os.listdir(here) if f.endswith(".py"))
+        return f"{dt.datetime.fromtimestamp(newest):%Y-%m-%d %H:%M} 판"
+    except Exception:
+        return "판 알 수 없음"
+
+
+def _xlsx_sig(j, year, elec_basis, gas_basis):
+    """만든 엑셀이 어느 조건의 것인지. 하나라도 바뀌면 다시 만들게 합니다."""
+    return (j.jibunAddr, str(year), temple_name(j), elec_basis, gas_basis,
+            str(st.session_state.get("merge_state") or ""))
+
+
+def _xlsx_name(j, temple, year) -> str:
+    """내려받을 파일 이름에 **사찰명과 지번**을 함께 넣습니다.
+
+    이름만 있으면 같은 절의 다른 지번을 받았을 때 파일이 겹칩니다.
+    원오사는 375 와 375-3 이 다른 건물입니다.
+    """
+    lot = juso.jibun_text(j.lnbrMnnm, j.lnbrSlno,
+                          str(j.mtYn).strip() == "1").replace(" ", "")
+    bad = chr(92) + '/:*?"<>|'          # 파일 이름에 못 쓰는 글자
+    safe = "".join(("_" if c in bad else c) for c in f"{temple}_{lot}")
+    return f"{safe}_{year}_온실가스산정.xlsx"
+
+
 def auto_temple_name(j) -> str:
     """조회한 지번에서 자동으로 뽑은 사찰명.
 
@@ -1022,11 +1075,27 @@ if picked and st.session_state.diag:
             st.error(str(e)); st.stop()
 
         pv = tpl.preview(_elec, acts, elec_basis=elec_basis)
-        st.session_state.xlsx = (blob, f"{temple}_{year}_온실가스산정.xlsx", pv, acts)
+        st.session_state.xlsx = (blob, _xlsx_name(picked, temple, year),
+                                 pv, acts, _xlsx_sig(picked, year,
+                                                     elec_basis, gas_basis))
 
+    # **만든 뒤에 다른 절로 넘어갔으면 보여 주지 않습니다.**
+    #
+    # 예전에는 `picked` 가 바뀌어도 `xlsx` 가 세션에 그대로 남아,
+    # **다른 절을 조회해도 앞 절의 엑셀이 계속 내려왔습니다**
+    # (2026-10-24, 배포판에서 교수님이 겪으심). 서버를 다시 띄우면
+    # 세션이 지워져 없어지는 탓에 「옛 코드」처럼 보였습니다.
+    #
+    # 지우는 자리를 일일이 기억하는 대신, **만들 때의 조건을 함께
+    # 적어 두고 지금 조건과 다르면 버립니다.** 조건이 하나라도
+    # 바뀌면 저절로 맞습니다.
     x = st.session_state.xlsx
+    if x and (len(x) < 5 or x[4] != _xlsx_sig(picked, year,
+                                              elec_basis, gas_basis)):
+        st.session_state.xlsx = None
+        x = None
     if x:
-        blob, fname, pv, acts = x
+        blob, fname, pv, acts, _ = x
         st.markdown("##### 미리보기")
         if pv["rows"]:
             st.table({
@@ -1321,3 +1390,10 @@ if not SHARE:
                 "전기(kWh)": [r.get("전기(kWh)", "") or "—" for r in hold],
                 "연면적(m²)": [r.get("연면적(m2)", "") or "—" for r in hold],
             })
+
+
+# ═══════════ 맨 아래 — 지금 돌고 있는 판 ═══════════
+#
+# 올린 뒤 사이트가 최신인지 **열어 보는 즉시** 알 수 있게 합니다.
+st.divider()
+st.caption(f"사찰 넷제로 진단 도구 · 돌고 있는 판 {running_version()}")

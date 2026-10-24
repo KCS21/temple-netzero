@@ -156,6 +156,10 @@ def sibling(base: "Juso", bun, ji) -> "Juso":
         lnbrMnnm=str(int(str(bun) or 0)),
         lnbrSlno=str(int(str(ji) or 0)),
         mtYn=base.mtYn,
+        # **절 이름을 이어받습니다.** 569 에는 건물명이 없어서, 안 물려주면
+        # 엑셀 ⓪·⑥·⑧ 의 「대상」이 사찰명 대신 주소로 찍힙니다. 같은
+        # 본번의 옆 땅이니 절은 같다고 보는 것이 맞습니다.
+        bdNm=base.bdNm,
         raw={"출처": SIBLING_SRC, "기준지번": base.jibunAddr},
     )
 

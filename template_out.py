@@ -173,7 +173,8 @@ def fill(
     if SH_INFO in wb.sheetnames:
         info = wb[SH_INFO]
         info["C5"] = temple
-        info["C6"] = road_addr
+        info["C6"] = road_addr or (
+            f"{route} (이 지번에는 도로명주소가 없습니다)" if route else "")
         info["C7"] = jibun_addr
         info["C8"] = f"{year}년 사용량"
         info["C9"] = stamp

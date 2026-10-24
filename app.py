@@ -251,6 +251,61 @@ elif submitted and not st.session_state.error:
     st.warning("찾으시는 주소가 없습니다. 동 이름만 넣고 다시 해보세요. 예: 은평구 구산동")
 
 
+def _direct_block():
+    """지번을 손으로 넣어 바로 조회 (작업지시 08 5번).
+
+    **접어 둡니다.** 대부분은 주소로 찾으면 되고, 본번·부번을 묻는 것은
+    시니어에게 판단을 요구하는 일입니다(2장). 현장에서 지번을 받아 온
+    회원만 펼쳐 씁니다.
+
+    **왜 필요한가** — 도로명주소 API 는 도로명이 붙은 지번만 들고 있어서,
+    도로명이 없는 지번은 **무엇을 넣어도 안 걸립니다.** 옆 지번으로 들어갈
+    수 있으면 그 길이 낫지만, 명단 69곳에서 건물이 안 잡힌 13곳 중 6곳은
+    **옆 지번조차 없었습니다.** 본번이 많아 목록을 막는 곳도 있습니다.
+    """
+    with st.expander("자세히 — 지번을 직접 넣어 조회하기", expanded=False):
+        st.markdown(
+            '<p class="hint">주소로 찾아지지 않는 지번이 있습니다. '
+            "도로명주소가 붙지 않은 땅은 <b>무엇을 넣어도 검색에 안 나옵니다.</b><br>"
+            "<b>고지서나 지도 앱에서 지번을 확인하신 뒤</b>에 쓰십시오. "
+            "지번을 모르시면 위 주소 검색을 쓰시는 편이 낫습니다.</p>",
+            unsafe_allow_html=True)
+        c1, c2 = st.columns([3, 1])
+        dong = c1.text_input("법정동까지의 주소", key="dj_dong",
+                             placeholder="예: 강릉시 연곡면 삼산리")
+        st.caption("같은 법정동의 **아무 지번이나** 넣으시면 됩니다. "
+                   "그 동네를 찾는 데만 씁니다.")
+        c3, c4 = st.columns(2)
+        bun = c3.text_input("번 (본번)", key="dj_bun", placeholder="예: 569")
+        ji = c4.text_input("지 (부번) — 없으면 비워 두세요", key="dj_ji",
+                           placeholder="예: 3")
+        if not c2.button("조회", key="dj_go", width="stretch"):
+            return
+        if not (dong or "").strip() or not str(bun or "").strip().isdigit():
+            st.warning("**법정동 주소와 번(본번)을 넣어 주세요.** "
+                       "번은 숫자만 넣으시면 됩니다.")
+            return
+        jj = str(ji or "").strip() or "0"
+        if not jj.isdigit():
+            st.warning("**지(부번)는 숫자만 넣어 주세요.** 없으면 비워 두십시오.")
+            return
+        try:
+            rows, _ = juso.search(dong.strip(), CONFM_KEY, per_page=1)
+        except juso.JusoError as e:
+            st.error(str(e)); return
+        if not rows:
+            st.warning("**그 동네를 찾지 못했습니다.** 시군구와 동·리 이름을 "
+                       "넣어 보세요. 예: 강릉시 연곡면 삼산리")
+            return
+        st.session_state.update(
+            picked=juso.sibling(rows[0], int(bun), int(jj)),
+            bld=None, diag=None, sibs=None, merge_state=None)
+        st.rerun()
+
+
+_direct_block()
+
+
 # ═══════════ 2단계 — 건물 정보 ═══════════
 
 def _sibling_block(j, year):
@@ -904,11 +959,17 @@ if picked and st.session_state.diag:
         _ms = st.session_state.get("merge_state")
         _elec = _ms["elec"] if _ms and len(_ms["rows"]) > 1 else es["total"]
         _gas = _ms["gas"] if _ms and len(_ms["rows"]) > 1 else gs["total"]
-        _srcs = ([{"지번": r["지번"], "연면적": round(r["연면적"], 1),
-                   "주차장제외": round(r["주차장제외"], 1),
-                   "전기": round(r["전기"]), "가스": round(r["가스"]),
-                   "동수": r["동수"], "전통": r["전통"]}
-                  for r in _ms["rows"]] if _ms and len(_ms["rows"]) > 1 else [])
+        # **묶지 않았어도 한 줄은 냅니다.** 예전에는 묶었을 때만 채워서,
+        # 지번 하나만 조회하면 ⑧조회근거 14행에 지번만 찍히고 연면적·전기·
+        # 동수가 통째로 비었습니다(2026-10-24 발견). 묶기는 드문 일이라
+        # **보통의 조회가 늘 빈 줄을 내고 있었습니다.**
+        _rows = (_ms["rows"] if _ms and len(_ms["rows"]) > 1
+                 else [_merge_rows(picked, es, gs)])
+        _srcs = [{"지번": r["지번"], "연면적": round(r["연면적"], 1),
+                  "주차장제외": round(r["주차장제외"], 1),
+                  "전기": round(r["전기"]), "가스": round(r["가스"]),
+                  "동수": r["동수"], "전통": r["전통"]}
+                 for r in _rows]
         _basis = _ms["basis"] if _ms and len(_ms["rows"]) > 1 else ""
 
         temple = region.named((picked.bdNm or picked.jibunAddr).strip(),

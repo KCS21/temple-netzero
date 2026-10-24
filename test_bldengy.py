@@ -62,6 +62,24 @@ def check(name, rows, plat_gb, want, want_dropped=None):
     print(f"         plat_gb={gb}  기대 {want:,.0f}  실제 {got:,.0f}{tail}")
 
 
+def gcheck(name, months, want_holes, want_ends):
+    """bldengy.gaps - 빠진 달을 두 갈래로 가르는 규칙.
+
+    months 는 1~12월 값 열두 개. 0 이면 그달 자료가 없다는 뜻입니다.
+    """
+    global _fail
+    series = {f"2021{i:02d}": float(v) for i, v in enumerate(months, 1)}
+    holes, ends = bldengy.gaps(series)
+    gh = [int(y[4:]) for y in holes]
+    ge = [int(y[4:]) for y in ends]
+    ok = gh == list(want_holes) and ge == list(want_ends)
+    if not ok:
+        _fail += 1
+    print(f"  [{'OK' if ok else 'FAIL'}]  {name}")
+    print(f"         구멍 기대 {list(want_holes)} 실제 {gh}"
+          f"  /  끝 기대 {list(want_ends)} 실제 {ge}")
+
+
 def main() -> int:
     print()
     print(LINE)
@@ -101,6 +119,27 @@ def main() -> int:
     print("  [4] 그 밖")
     check("행이 아예 없음 -> 0", [], "1", 0)
     check("plat_gb 를 안 주면 전부", [SAN, DAEJI], None, 29199)
+    print()
+
+    # 빠진 달은 **가운데 구멍**과 **앞뒤 끝**이 다릅니다. 가운데 구멍은
+    # 자료 출처에 그 달이 없는 것이라 해를 바꿔도 그대로이고, 앞뒤 끝은
+    # 아직 안 들어온 해라 최근 해로 바꾸면 채워집니다. 다음 행동이
+    # 정반대라 화면이 두 문구로 나눠 알립니다(2026-10-24).
+    print("  [5] 빠진 달 가르기 (gaps)")
+    F = 100
+    gcheck("열두 달 꽉 참", [F] * 12, [], [])
+    gcheck("10월만 구멍 (2021년 전기 실제)",
+           [F] * 9 + [0] + [F] * 2, [10], [])
+    gcheck("구멍 둘", [F, F, F, 0, F, F, F, F, F, 0, F, F], [4, 10], [])
+    gcheck("뒤쪽 끝이 비었음", [F] * 9 + [0] * 3, [], [10, 11, 12])
+    gcheck("앞쪽 끝이 비었음 (원오사 2020년)",
+           [0] * 3 + [F] * 9, [], [1, 2, 3])
+    gcheck("앞 끝과 가운데 구멍이 같이",
+           [0, 0, 0] + [F] * 6 + [0] + [F, F], [10], [1, 2, 3])
+    gcheck("한 달만 있음 -> 나머지는 전부 끝",
+           [0] * 5 + [F] + [0] * 6, [], [1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12])
+    gcheck("통째로 없음 -> 구멍 아님",
+           [0] * 12, [], list(range(1, 13)))
     print()
 
     print(LINE)

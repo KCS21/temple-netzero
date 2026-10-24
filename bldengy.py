@@ -145,11 +145,43 @@ def fetch_year(
     return out
 
 
+def gaps(series: Dict[str, float]) -> Tuple[List[str], List[str]]:
+    """빠진 달을 두 갈래로 나눕니다. (가운데 구멍, 앞뒤 끝).
+
+    **왜 나누는가** — 둘은 다음 행동이 정반대입니다.
+
+    - **가운데 구멍** — 앞뒤 달에는 자료가 있는데 그 달만 0.
+      그 절이 전기를 안 쓴 것이 아니라 **자료 출처에 그 달이 빠진** 것입니다.
+      해를 바꿔도 같으니 그대로 쓰되 합계가 그만큼 적다는 것만 알면 됩니다
+    - **앞뒤 끝** — 해의 처음이나 끝에 몰려 있음.
+      그 해에 자료가 아직 덜 들어온 것이므로 **최근 해로 바꾸면** 채워집니다
+
+    **상수로 박지 않습니다.** 2021년 10월 전기가 실제로 그런 달인데,
+    조사한 8곳 중 내원암(경북 청도)에는 그달 자료가 **있었습니다**(8,077 kWh).
+    달 이름을 코드에 적어 두었으면 내원암에 엉뚱한 경고가 붙었을 것입니다.
+    조회해 온 자료의 모양만 보고 가립니다.
+
+    표본 8곳 x 12달에서 가운데 구멍으로 잡힌 것은 2021년 10월뿐이었습니다
+    (오탐 0, 2026-10-24).
+    """
+    yms = sorted(series)
+    have = [i for i, k in enumerate(yms) if series.get(k)]
+    if not have:
+        return [], list(yms)
+    lo, hi = have[0], have[-1]
+    holes = [yms[i] for i in range(lo, hi + 1) if not series.get(yms[i])]
+    ends = [yms[i] for i in range(len(yms))
+            if not series.get(yms[i]) and (i < lo or i > hi)]
+    return holes, ends
+
+
 def summarize(series: Dict[str, float]) -> dict:
     """월별 사용량에서 연간 합계와 난방 부담 지표를 뽑습니다."""
     vals = {k: v for k, v in series.items() if v and v > 0}
+    hole, end = gaps(series)
     if not vals:
-        return {"total": 0.0, "months": 0, "max_ym": None, "min_ym": None, "ratio": None}
+        return {"total": 0.0, "months": 0, "max_ym": None, "min_ym": None,
+                "ratio": None, "holes": [], "ends": end}
 
     max_ym = max(vals, key=vals.get)
     min_ym = min(vals, key=vals.get)
@@ -161,4 +193,6 @@ def summarize(series: Dict[str, float]) -> dict:
         "min_ym": min_ym,
         "min": vals[min_ym],
         "ratio": vals[max_ym] / vals[min_ym] if vals[min_ym] else None,
+        "holes": hole,
+        "ends": end,
     }

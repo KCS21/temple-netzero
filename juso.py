@@ -130,7 +130,7 @@ def jibun_text(bun, ji, mountain: bool = False) -> str:
     return ("산 " if mountain else "") + (f"{b}-{j}" if j else f"{b}")
 
 
-def sibling(base: "Juso", bun, ji) -> "Juso":
+def sibling(base: "Juso", bun, ji, inherit_name: bool = True) -> "Juso":
     """옆 지번을 고른 것. **도로명주소를 다시 찾지 않습니다.**
 
     강릉 연곡면 삼산리 **569** 는 도로명주소 API 에 **아예 없습니다.**
@@ -159,7 +159,12 @@ def sibling(base: "Juso", bun, ji) -> "Juso":
         # **절 이름을 이어받습니다.** 569 에는 건물명이 없어서, 안 물려주면
         # 엑셀 ⓪·⑥·⑧ 의 「대상」이 사찰명 대신 주소로 찍힙니다. 같은
         # 본번의 옆 땅이니 절은 같다고 보는 것이 맞습니다.
-        bdNm=base.bdNm,
+        #
+        # **다만 본번이 다르면 물려주지 마십시오**(`inherit_name=False`).
+        # 지번을 손으로 넣는 칸은 법정동만 맞추고 아무 지번이나 쓰는데,
+        # 거기서 이어받으면 **남의 건물 이름**이 절 이름이 됩니다.
+        # 실제로 「계룡시 보훈회관」이 붙어 나왔습니다(2026-10-24).
+        bdNm=(base.bdNm if inherit_name else ""),
         raw={"출처": SIBLING_SRC, "기준지번": base.jibunAddr},
     )
 

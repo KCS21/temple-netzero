@@ -94,7 +94,7 @@ for k, v in [("rows", []), ("total", 0), ("page", 1), ("kw", ""),
              ("picked", None), ("error", None), ("bld", None), ("diag", None),
              # 1단계 라디오에서 **방금 고른 줄**. 이것이 없으면 아래 라디오가
              # 다시 그려질 때마다 picked 를 제 값으로 되돌려 놓습니다.
-             ("addr_applied", None),
+             ("addr_applied", None), ("temple_name", ""),
              ("xlsx", None),
              # 지도 검색(작업지시 07 ①) · 옆 지번(②) · 묶기(③)
              ("places", []), ("places_err", ""), ("kakao_done", ""),
@@ -121,6 +121,7 @@ def run_search(keyword, page):
     st.session_state.update(rows=rows, total=total, page=page, kw=keyword,
                             picked=None, error=None, bld=None, diag=None,
                             addr_applied=None, sibs=None, merge_state=None,
+                            temple_name='',
                             searched=True)
 
 
@@ -227,7 +228,7 @@ if rows:
     if choice is not None and st.session_state.get("addr_applied") != choice:
         st.session_state.update(picked=rows[choice], bld=None, diag=None,
                                 addr_applied=choice, sibs=None,
-                                merge_state=None)
+                                merge_state=None, temple_name='')
 
     _kakao_block()
 
@@ -249,6 +250,22 @@ if rows:
             run_search(st.session_state.kw, page + 1); st.rerun()
 elif submitted and not st.session_state.error:
     st.warning("찾으시는 주소가 없습니다. 동 이름만 넣고 다시 해보세요. 예: 은평구 구산동")
+
+
+def auto_temple_name(j) -> str:
+    """조회한 지번에서 자동으로 뽑은 사찰명.
+
+    건축물대장·도로명주소에 **건물명이 없는 절이 흔합니다.** 그때는
+    주소가 이름 자리에 들어갑니다. 회원이 4단계에서 고쳐 넣을 수 있게
+    했고, 이 함수는 그 **첫 값**입니다.
+    """
+    return region.named((j.bdNm or j.jibunAddr).strip(), j.jibunAddr)
+
+
+def temple_name(j) -> str:
+    """회원이 고쳐 넣은 이름이 있으면 그것, 없으면 자동 이름."""
+    typed = (st.session_state.get("temple_name") or "").strip()
+    return typed or auto_temple_name(j)
 
 
 def _direct_block():
@@ -298,8 +315,10 @@ def _direct_block():
                        "넣어 보세요. 예: 강릉시 연곡면 삼산리")
             return
         st.session_state.update(
-            picked=juso.sibling(rows[0], int(bun), int(jj)),
-            bld=None, diag=None, sibs=None, merge_state=None)
+            picked=juso.sibling(rows[0], int(bun), int(jj),
+                                inherit_name=False),
+            bld=None, diag=None, sibs=None, merge_state=None,
+            temple_name='')
         st.rerun()
 
 
@@ -379,7 +398,8 @@ def _sibling_block(j, year):
                      key="sib_apply", width="stretch"):
             st.session_state.update(
                 picked=juso.sibling(j, int(p["bun"]), int(pick)),
-                bld=None, diag=None, sibs=None, merge_state=None)
+                bld=None, diag=None, sibs=None, merge_state=None,
+                temple_name='')
             st.rerun()
 
 
@@ -814,7 +834,7 @@ if picked:
                 ds = bldrgst.summarize(dongs) if dongs else {}
                 try:
                     rows, replaced = store.save({
-                        "사찰": (picked.bdNm or picked.jibunAddr).strip(),
+                        "사찰": temple_name(picked),
                         "지번주소": picked.jibunAddr,
                         "도로명주소": picked.roadAddr,
                         "조회연도": str(year),
@@ -870,6 +890,20 @@ if picked and st.session_state.diag:
     st.markdown('<p class="hint">「온실가스 배출량 산정 실무용 템플릿」의 활동량 칸을 '
                 "채워 드립니다. 엑셀에서 열면 <b>활동량 x 발열량 x 배출계수 x 산화계수 "
                 "x GWP</b> 5단계가 그대로 계산됩니다.</p>", unsafe_allow_html=True)
+
+    # 건물명이 없는 절이 흔합니다. 그때는 주소가 이름 자리에 들어가
+    # 엑셀 표지에 「충청남도 계룡시 …」처럼 찍힙니다. 고쳐 넣을 수 있게
+    # 했습니다. **비워 두면 자동 이름을 그대로 씁니다**(2장 - 판단을
+    # 요구하지 않는다). 기록에 저장할 때도 같은 이름이 들어갑니다.
+    _auto = auto_temple_name(picked)
+    st.text_input("사찰명 — 문서에 적힐 이름", key="temple_name",
+                  placeholder=_auto)
+    if not (st.session_state.get("temple_name") or "").strip():
+        if picked.bdNm:
+            st.caption(f"비워 두시면 **{_auto}** 로 적습니다.")
+        else:
+            st.caption(f"이 지번에는 **건물명이 없어** 주소로 적힙니다 "
+                       f"— {_auto}. 절 이름을 넣어 주시면 그것으로 바뀝니다.")
 
     # 계수 고르기는 접어 둡니다. 기본값이 옳고 대부분 손댈 일이 없는데
     # 눈에 띄는 자리에 두면 시니어에게 판단을 요구하는 셈이 됩니다(2장).
@@ -972,8 +1006,7 @@ if picked and st.session_state.diag:
                  for r in _rows]
         _basis = _ms["basis"] if _ms and len(_ms["rows"]) > 1 else ""
 
-        temple = region.named((picked.bdNm or picked.jibunAddr).strip(),
-                              picked.jibunAddr)
+        temple = temple_name(picked)
         try:
             with tempfile.TemporaryDirectory() as tmp:
                 out = os.path.join(tmp, f"{temple}_{year}_온실가스산정.xlsx")

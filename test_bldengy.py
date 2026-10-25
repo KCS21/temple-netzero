@@ -80,6 +80,27 @@ def gcheck(name, months, want_holes, want_ends):
           f"  /  끝 기대 {list(want_ends)} 실제 {ge}")
 
 
+def mcheck(name, fake, want, notwant=""):
+    """오류 문구가 맞는 갈래로 나오는지. 인터넷을 쓰지 않습니다."""
+    global _fail
+    import requests
+    import portal as _p
+    real = requests.get
+    requests.get = fake
+    try:
+        _p.request("http://b", "op", {"x": 1}, "KEY", timeout=1, retries=0)
+        msg = "(오류가 안 났습니다)"
+    except _p.PortalError as e:
+        msg = str(e)
+    finally:
+        requests.get = real
+    ok = want in msg and (not notwant or notwant not in msg)
+    if not ok:
+        _fail += 1
+    print(f"  [{'OK' if ok else 'FAIL'}]  {name}")
+    print(f"         기대 「{want}」 / 실제 「{msg.splitlines()[0]}」")
+
+
 def main() -> int:
     print()
     print(LINE)
@@ -140,6 +161,40 @@ def main() -> int:
            [0] * 5 + [F] + [0] * 6, [], [1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12])
     gcheck("통째로 없음 -> 구멍 아님",
            [0] * 12, [], list(range(1, 13)))
+    print()
+
+    # 제공기관이 503 을 내는 날에 **회원 인터넷을 탓하면 안 됩니다.**
+    # 시니어가 공유기를 보러 가십니다(2026-10-25).
+    print("  [6] 오류 문구가 맞는 갈래로 나오나")
+    import requests as _rq
+
+    class _R503:
+        text = "<html>503</html>"
+
+        def raise_for_status(self):
+            raise _rq.HTTPError("503 Server Error for url: http://x")
+
+        def json(self):
+            raise AssertionError
+
+    class _RHtml:
+        text = "<html>잠시 후</html>"
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            raise ValueError("no json")
+
+    def _down(*a, **k):
+        raise _rq.ConnectionError("getaddrinfo failed")
+
+    mcheck("서버가 5xx -> 공공기관 서버 문구", lambda *a, **k: _R503(),
+           "공공기관 서버가 잠시 응답하지 않습니다", "인터넷 연결을 확인")
+    mcheck("연결 자체 실패 -> 인터넷 문구", _down,
+           "인터넷 연결을 확인", "공공기관 서버가 잠시")
+    mcheck("JSON 대신 HTML -> 불안정 문구", lambda *a, **k: _RHtml(),
+           "제공기관 서버가 잠시 불안정합니다")
     print()
 
     print(LINE)

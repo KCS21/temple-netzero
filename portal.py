@@ -76,6 +76,7 @@ def request(base: str, op: str, params: dict, service_key: str,
     q["_type"] = "json"
 
     last, resp, head, bad_format = None, None, "", False
+    server_said = False          # 서버가 5xx 로 답했나 (연결 실패와 다름)
     for attempt in range(retries + 1):
         try:
             resp = requests.get(f"{base}/{op}", params=q, timeout=timeout)
@@ -85,7 +86,11 @@ def request(base: str, op: str, params: dict, service_key: str,
             bad_format = True
             head = " ".join((resp.text or "").split())[:150] if resp is not None else ""
         except requests.RequestException as e:
+            # **서버가 답은 했는데 5xx 인 것**과 **아예 연결이 안 되는 것**은
+            # 다릅니다. 둘을 한 문구로 묶으면 제공기관이 아픈 날에
+            # 회원이 제 공유기를 보러 갑니다(2026-10-25).
             last, bad_format = e, False
+            server_said = isinstance(e, requests.HTTPError)
         if attempt < retries:
             time.sleep(0.8 * (attempt + 1))
 
@@ -99,6 +104,15 @@ def request(base: str, op: str, params: dict, service_key: str,
             "여러 번 해도 같으면 공공데이터포털이 점검 중일 수 있습니다."
             + NL + NL +
             f"(서버가 보낸 내용: {hide_keys(head)})"
+        )
+    if server_said:
+        raise PortalError(
+            "공공기관 서버가 잠시 응답하지 않습니다. "
+            f"{tries}번 시도했습니다."
+            + NL + NL +
+            "**1~2분 뒤 다시 조회해 주세요.** 회원님 인터넷 문제가 아닙니다."
+            + NL + NL +
+            f"({hide_keys(last)})"
         )
     raise PortalError(
         f"서버에 연결하지 못했습니다. {tries}번 시도했습니다."

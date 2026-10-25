@@ -40,6 +40,32 @@ LIST_NAME = "녹색사찰_명단.csv"
 
 # 명단 열 이름. 원본 엑셀을 정리한 것이라 이름이 고정되어 있습니다.
 COL_NO, COL_NAME, COL_ADDR = "번호", "사찰명", "주소"
+
+# ── 건물 내 사찰 ──
+#
+# 상가 한 층·한 호만 쓰는 절이 있습니다. 건물에너지는 **지번 단위**라
+# 상가 건물 전체 값이 그 절 것으로 잡힙니다. 그러면 면적당 값과 총량이
+# 절 몫이 아니라 건물 몫이 되어, **방문 순서가 실제보다 앞**으로 옵니다.
+#
+#   33번 행복선원(안양) 301호 - 상가 1,190m2 전체가 잡혀 1.37배
+#   38번 반야선원 802호      - 상가 8,752m2 전체가 잡혀 1.64배
+#   50번 대광명사 3층        - 아울렛
+#
+# **전기와 면적은 그대로 보여 줍니다.** 실제로 잰 값입니다.
+# 가릴 수 없는 것은 **배수·분류·총량 순위**뿐이라 그 셋만 비웁니다
+# (가스가 0 일 때 배수 칸을 비우는 것과 같은 방식입니다).
+#
+# **근린생활시설이라고 다 넣지 마십시오.** 건물 전체가 절이면
+# 500m2 미만이라 제2종근린생활시설로 올라간 것일 뿐입니다
+# (건축법 시행령 별표1). 미소원·대각포교원이 그런 경우입니다.
+COL_INBLD = "건물내사찰"
+_YES = ("예", "y", "yes", "1", "o", "true", "ㅇ")
+IN_BLD_WHY = ("건물 내 사찰 — 건물 전체 값이라 절 몫이 아닙니다. "
+              "방문 때 그 호의 고지서를 받아야 합니다")
+
+
+def is_yes(v) -> bool:
+    return str(v or "").strip().lower() in _YES
 # 주지스님·연락처·종단은 읽지 않습니다. 도구 어디에도 개인정보를 두지
 # 않는다는 규칙입니다(작업지시 03 3장). 명단에 그런 열이 있어도 무시합니다.
 
@@ -55,6 +81,7 @@ class Target:
     no: str = ""
     name: str = ""
     addr: str = ""
+    in_bld: bool = False          # 상가 건물 안의 절 (위 COL_INBLD)
     raw: dict = field(default_factory=dict, repr=False)
 
     def label(self) -> str:
@@ -108,6 +135,7 @@ def read_list(path_or_bytes) -> List[Target]:
             no=(r.get(COL_NO) or "").strip(),
             name=(r.get(COL_NAME) or "").strip(),
             addr=(r.get(COL_ADDR) or "").strip(),
+            in_bld=is_yes(r.get(COL_INBLD)),
             raw=r,
         ))
     return out
@@ -177,6 +205,7 @@ def _fail_row(t: Target, year: int, why: str) -> Dict[str, str]:
         "번호": t.no, "사찰": t.name,
         "지번주소": t.addr, "조회연도": str(year),
         "신뢰도": "낮음", "실패사유": why,
+        COL_INBLD: "예" if t.in_bld else "",
     }
 
 
@@ -294,6 +323,8 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
         # 기록의 정체성은 (번호, 연도)라 섞이지 않지만, **표에 이름만
         # 보이는 자리**가 헷갈립니다. 표시용 이름을 따로 둡니다.
         "표시이름": region.named(t.name, j.jibunAddr),
+        # 명단에 표시된 상가 건물 안의 절. 배수·분류·총량 순위를 비웁니다.
+        COL_INBLD: "예" if t.in_bld else "",
         "지번주소": j.jibunAddr, "도로명주소": j.roadAddr, "조회연도": str(year),
         "Scope1(t)": f"{r.gas_t:.2f}", "Scope2(t)": f"{r.elec_t:.2f}",
         "공개자료 배출량(t)": f"{r.subtotal_t:.2f}",
@@ -343,6 +374,7 @@ RATIO_COLUMNS = [
     "면적당 전기(kWh/m2)", "면적당 에너지(kWh/m2)",
     "연간 총에너지(kWh)", "총량_순위",
     "사찰 원단위", "원단위 대비 배수", "분류", "배수 미산출 사유",
+    COL_INBLD,
     "동수", "전통 동수", "신식 동수", "옆지번수", "신뢰도", "실패사유",
 ]
 
@@ -372,12 +404,30 @@ def save_ratio(row: dict, folder: str = "") -> int:
     keep = [r for r in rows
             if (str(r.get("번호", "")).strip() or str(r.get("사찰", "")).strip(),
                 str(r.get("조회연도", "")).strip()) != key]
-    keep.append({c: str(row.get(c, "")) for c in RATIO_COLUMNS})
+    one = {c: str(row.get(c, "")) for c in RATIO_COLUMNS}
+    blank_in_bld(one)
+    keep.append(one)
     with io.open(ratio_path(folder), "w", encoding="utf-8-sig", newline="") as f:
         w = csv.DictWriter(f, fieldnames=RATIO_COLUMNS, extrasaction="ignore")
         w.writeheader()
         w.writerows(keep)
     return len(keep)
+
+
+def blank_in_bld(row: dict) -> bool:
+    """건물 내 사찰이면 배수·분류·총량 순위를 비웁니다. 비웠으면 True.
+
+    **한 자리에서만** 비웁니다. 저장할 때와 순위를 다시 매길 때가 서로
+    다르게 굴면 CSV 와 화면이 어긋납니다(2026-10-24 분류 사고).
+    """
+    if not is_yes(row.get(COL_INBLD)):
+        return False
+    row["원단위 대비 배수"] = ""
+    row["분류"] = ""
+    row["총량_순위"] = ""
+    if not (row.get("배수 미산출 사유") or "").strip():
+        row["배수 미산출 사유"] = IN_BLD_WHY
+    return True
 
 
 def _num(v) -> float:
@@ -395,6 +445,9 @@ def classify(rows: List[dict]):
     어긋나지 않습니다. 한쪽은 69줄로, 한쪽은 16줄로 중간값을 내다가
     같은 사찰이 다른 칸에 들어간 일이 있었습니다(2026-10-24).
     """
+    # 건물 내 사찰은 **기준선 셈에서도** 뺍니다. 상가 건물 값이 섞이면
+    # 총량 중간값이 밀려 다른 절의 칸까지 바뀝니다.
+    rows = [r for r in rows if not is_yes(r.get(COL_INBLD))]
     usable = [(_num(r.get("원단위 대비 배수")),
                _num(r.get("연간 총에너지(kWh)")), r) for r in rows]
     usable = [(q, t, r) for q, t, r in usable if q > 0 and t > 0]
@@ -413,9 +466,14 @@ def rank_ratio(folder: str = "") -> dict:
 
     med, _usable = classify(rows)
     # 순위는 총량이 있는 줄 전부에 매깁니다(분류와 기준이 다릅니다).
-    order = sorted(rows, key=lambda r: -_num(r.get("연간 총에너지(kWh)")))
+    # 건물 내 사찰은 **셈에서 뺍니다.** 넣어 두면 그 자리가 빈 채로
+    # 남아 순위에 구멍이 생깁니다(2위가 없는 표).
+    order = sorted((r for r in rows if not is_yes(r.get(COL_INBLD))),
+                   key=lambda r: -_num(r.get("연간 총에너지(kWh)")))
     rank = {id(r): i for i, r in enumerate(order, 1)}
     for r in rows:
+        if blank_in_bld(r):          # 건물 내 사찰은 셋 다 비웁니다
+            continue
         tot = _num(r.get("연간 총에너지(kWh)"))
         r["총량_순위"] = str(rank[id(r)]) if tot else ""
         r["분류"] = em.quadrant(_num(r.get("원단위 대비 배수")), tot, med)

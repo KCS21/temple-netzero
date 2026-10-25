@@ -1236,6 +1236,17 @@ if not SHARE:
                 f"{_med:,.0f} kWh. **가로선은 절대 기준이 아니라 "
                 "모인 절들 안에서의 상대적인 선입니다.**")
 
+            # 상가 건물 한 호만 쓰는 절은 빼 두었습니다. 숨기지 않고
+            # 몇 곳을 왜 뺐는지 밝힙니다(CLAUDE.md 7장).
+            _inb = [(r.get("표시이름") or r.get("사찰", ""))
+                    for r in _rr if batch.is_yes(r.get(batch.COL_INBLD))]
+            if _inb:
+                st.caption(
+                    f"**{len(_inb)}곳은 이 그림에서 뺐습니다** — "
+                    f"{' · '.join(_inb)}. 상가 건물 한 호만 쓰는 절이라 "
+                    "건물에너지가 **건물 전체 값**으로 잡힙니다. "
+                    "전기와 면적은 위 표에 그대로 있습니다.")
+
             _cnt = df["분류"].value_counts().to_dict()
             st.table({
                 "분류": list(em.QUAD.values()),

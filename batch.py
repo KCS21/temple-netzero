@@ -141,9 +141,13 @@ def address_tries(addr: str, name: str = "") -> List[str]:
 
     괄호를 뗀 것을 먼저 쓰고, 안 되면 원본, 그래도 안 되면 절 이름입니다.
     이름으로 찾는 것은 마지막입니다. 같은 이름의 다른 절이 흔하기 때문입니다.
+
+    **시도를 뗀 것은 그다음**입니다(`region.drop_sido`). 명단의 시도가
+    낡아 0건이 나오는 곳이 있습니다 - 군위군은 경북에서 대구로 옮겼는데
+    「경상북도 군위군 …」 으로는 한 건도 안 나옵니다.
     """
     out, seen = [], set()
-    for cand in (_PAREN.sub(" ", addr), addr, name):
+    for cand in (_PAREN.sub(" ", addr), addr, name, region.drop_sido(addr)):
         c = " ".join((cand or "").split())
         if c and c not in seen:
             seen.add(c)

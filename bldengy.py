@@ -19,6 +19,9 @@ import portal
 from portal import PortalError as EnergyError  # noqa: F401
 
 BASE = "https://apis.data.go.kr/1613000/BldEngyHubService"
+# 어느 시군구코드로 받은 값인가 — 화면·엑셀·CSV 가 함께 씁니다.
+NEW_CODE, OLD_CODE = "새", "옛"
+
 OP_ELEC = "getBeElctyUsgInfo"
 OP_GAS = "getBeGasUsgInfo"
 
@@ -59,8 +62,13 @@ def fetch_month(
     plat_gb: Optional[str] = None,
     timeout: int = 15,
     retries: int = 2,
+    place_must: str = "",
 ) -> Tuple[float, int]:
     """한 달치 사용량(kWh). 자료가 없으면 0.0을 돌려줍니다.
+
+    `place_must` 를 주면 응답의 `platPlc` 에 **그 말이 든 자료만** 씁니다.
+    옛 시군구코드로 물을 때 쓰는 안전장치입니다 - 코드가 어긋나 **남의
+    동네 건물**이 오면 그 전기를 사찰 것으로 합치게 됩니다.
 
     plat_gb 를 주면 응답에서 그 대지구분(0=대지, 1=산)만 골라 씁니다.
     요청 파라미터에는 대지구분이 없어서 응답에서 걸러야 합니다.
@@ -89,6 +97,10 @@ def fetch_month(
             dropped = len(tagged) - len(keep)
             rows = keep
         # 응답이 대지구분을 아예 안 밝혔으면 거를 수가 없으므로 손대지 않습니다.
+    if place_must:
+        keep = [r for r in rows if place_must in (r.platPlc or "")]
+        dropped += len(rows) - len(keep)
+        rows = keep
     return sum(r.useQty for r in rows), dropped
 
 
@@ -105,39 +117,70 @@ def fetch_year(
     timeout: int = 15,
     retries: int = 2,
     deadline: Optional[float] = None,
+    old_sigungu: str = "",
+    place_must: str = "",
 ) -> Dict[str, Dict[str, float]]:
     """1년치 전기·가스 사용량.
 
-    {'elec': {'202501': 1234.0, ...}, 'gas': {...}, 'dropped': 3}
+    {'elec': {'202501': 1234.0, ...}, 'gas': {...}, 'dropped': 3,
+     'code': '새'|'옛', 'sigungu': 실제로 쓴 시군구코드}
     dropped 는 대지구분이 달라 제외한 자료 건수입니다.
+
+    `old_sigungu` 를 주면, 새 코드로 **열두 달이 모두 0** 일 때만 그 코드로
+    다시 묻습니다(`region.old_sigungu`). 행정구역이 통합된 광주·전남에서
+    건물에너지가 옛 코드에만 붙어 있기 때문입니다. 두 달만 떠 보고
+    자료가 있을 때 한 해를 받습니다 - 없으면 네 번으로 끝냅니다.
 
     deadline 은 time.time() 기준 마감 시각입니다. 제공기관 서버가 아플 때
     24회 x 재시도 x 타임아웃이 겹쳐 **한 곳에 34분**을 쓴 일이 있습니다.
     일괄 조회에서는 상한을 두고 넘기는 편이 낫습니다.
     """
     months = [f"{year}{m:02d}" for m in range(1, 13)]
-    out: Dict[str, Dict[str, float]] = {"elec": {}, "gas": {}}
-    dropped = 0
 
-    total = len(months) * 2
-    done = 0
-    for kind in ("elec", "gas"):
-        for ym in months:
-            if deadline and time.time() > deadline:
-                raise portal.PortalError(
-                    "제공기관 서버가 느려 이 사찰은 건너뜁니다. "
-                    "나중에 [실패한 곳만 다시] 로 다시 해보세요."
+    def one_year(sgg: str, must: str, tag: str):
+        got: Dict[str, Dict[str, float]] = {"elec": {}, "gas": {}}
+        drops = 0
+        total = len(months) * 2
+        done = 0
+        for kind in ("elec", "gas"):
+            for ym in months:
+                if deadline and time.time() > deadline:
+                    raise portal.PortalError(
+                        "제공기관 서버가 느려 이 사찰은 건너뜁니다. "
+                        "나중에 [실패한 곳만 다시] 로 다시 해보세요."
+                    )
+                qty, drop = fetch_month(
+                    kind, sgg, bjdongCd, bun, ji, ym, service_key, plat_gb,
+                    timeout=timeout, retries=retries, place_must=must,
                 )
-            qty, drop = fetch_month(
-                kind, sigunguCd, bjdongCd, bun, ji, ym, service_key, plat_gb,
-                timeout=timeout, retries=retries,
-            )
-            out[kind][ym] = qty
-            dropped += drop
-            done += 1
-            if progress:
-                progress(done, total, f"{'전기' if kind == 'elec' else '가스'} {ym}")
-            time.sleep(pause)     # 초당 30건 제한을 넉넉히 지킵니다.
+                got[kind][ym] = qty
+                drops += drop
+                done += 1
+                if progress:
+                    progress(done, total,
+                             f"{'전기' if kind == 'elec' else '가스'} {ym}{tag}")
+                time.sleep(pause)     # 초당 30건 제한을 넉넉히 지킵니다.
+        return got, drops
+
+    out, dropped = one_year(sigunguCd, "", "")
+    out["code"], out["sigungu"] = NEW_CODE, sigunguCd
+
+    empty = not any(out["elec"].values()) and not any(out["gas"].values())
+    if empty and old_sigungu:
+        # 네 번만 떠 봅니다. 한 해를 다 받는 것은 자료가 있을 때만입니다.
+        probe = 0.0
+        for kind in ("elec", "gas"):
+            for ym in (months[0], months[6]):
+                qty, _d = fetch_month(
+                    kind, old_sigungu, bjdongCd, bun, ji, ym, service_key,
+                    plat_gb, timeout=timeout, retries=retries,
+                    place_must=place_must,
+                )
+                probe += qty
+                time.sleep(pause)
+        if probe > 0:
+            out, dropped = one_year(old_sigungu, place_must, " (옛 코드)")
+            out["code"], out["sigungu"] = OLD_CODE, old_sigungu
 
     # 걸러냈다는 사실 자체가 단서입니다. 같은 번지에 다른 건물이 있다는 뜻이고,
     # 사찰 전기가 그쪽에 물려 있을 수 있습니다. 숨기지 않고 화면에 드러냅니다.

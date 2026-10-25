@@ -274,10 +274,15 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
 
     # ── 3. 건물에너지 ──
     try:
+        # 통합된 광주·전남은 건물에너지가 **옛 시군구코드**에만 있습니다.
+        # 새 코드로 열두 달이 다 0 일 때만 되묻고, 그때도 응답 주소에
+        # 그 동네 이름이 든 자료만 씁니다(region.place_token).
         data = bldengy.fetch_year(p["sigunguCd"], p["bjdongCd"], p["bun"],
                                   p["ji"], year, service_key,
                                   plat_gb=p["platGbCd"],
-                                  timeout=8, retries=1, deadline=deadline)
+                                  timeout=8, retries=1, deadline=deadline,
+                                  old_sigungu=region.old_sigungu(p["sigunguCd"]),
+                                  place_must=region.place_token(j.jibunAddr))
     except portal.PortalError as e:
         return _fail_row(t, year, f"건물에너지 실패 ({portal.hide_keys(e)})")
 
@@ -325,6 +330,8 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
         "표시이름": region.named(t.name, j.jibunAddr),
         # 명단에 표시된 상가 건물 안의 절. 배수·분류·총량 순위를 비웁니다.
         COL_INBLD: "예" if t.in_bld else "",
+        # 어느 시군구코드로 받은 값인지. 「옛」이면 통합 전 코드입니다.
+        "에너지조회코드": data.get("code", bldengy.NEW_CODE),
         "지번주소": j.jibunAddr, "도로명주소": j.roadAddr, "조회연도": str(year),
         "Scope1(t)": f"{r.gas_t:.2f}", "Scope2(t)": f"{r.elec_t:.2f}",
         "공개자료 배출량(t)": f"{r.subtotal_t:.2f}",

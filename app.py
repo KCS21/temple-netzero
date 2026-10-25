@@ -634,7 +634,9 @@ def _merge_block(picked, year, es, gs, use):
                 d2 = bldrgst.summarize(dongs2)
                 e2 = bldengy.fetch_year(p2["sigunguCd"], p2["bjdongCd"], p2["bun"],
                                         p2["ji"], year, SERVICE_KEY,
-                                        plat_gb=p2["platGbCd"])
+                                        plat_gb=p2["platGbCd"],
+                                        old_sigungu=region.old_sigungu(p2["sigunguCd"]),
+                                        place_must=region.place_token(j2.jibunAddr))
                 extra.append({
                     "지번": j2.jibunAddr,
                     "연면적": d2["total_area"],
@@ -731,6 +733,9 @@ if picked:
             data = bldengy.fetch_year(
                 p["sigunguCd"], p["bjdongCd"], p["bun"], p["ji"], year, SERVICE_KEY,
                 plat_gb=p["platGbCd"],
+                # 통합된 광주·전남은 건물에너지가 옛 시군구코드에만 있습니다.
+                old_sigungu=region.old_sigungu(p["sigunguCd"]),
+                place_must=region.place_token(picked.jibunAddr),
                 progress=lambda d, t, lbl: bar.progress(d / t, text=f"{lbl} ({d}/{t})"))
         except portal.PortalError as e:
             bar.empty(); st.error(str(e)); st.stop()
@@ -763,6 +768,16 @@ if picked:
             st.info(f"이 값은 **{picked.jibunAddr}** 한 지번에 잡힌 것만 더한 것입니다. "
                     "사찰 전체가 아닐 수 있습니다. "
                     "고지서에 적힌 주소가 이와 다르면 그 주소로 다시 찾아 주세요.")
+
+            # 옛 시군구코드로 받아 왔으면 밝힙니다. 참고이지 문제가 아니라
+            # 파란 상자입니다(7장 「참고는 파란색」).
+            if data.get("code") == bldengy.OLD_CODE:
+                st.info(f"""이 지역은 행정구역이 통합되어 **건물에너지 자료가
+통합 전 코드에 남아 있습니다.** 새 코드로는 열두 달이 모두 0 이어서,
+**통합 전 시군구코드({data.get('sigungu', '')})로 다시 받은 값**입니다.
+
+받은 자료의 주소에 **{region.place_token(picked.jibunAddr)}** 가 들어 있는 것만 썼습니다.
+건물 정보(동수·연면적)는 지금 코드로 받은 것입니다.""")
 
             dropped = data.get("dropped", 0)
             if dropped:
@@ -1080,7 +1095,9 @@ if picked and st.session_state.diag:
                     road_addr=picked.roadAddr, jibun_addr=picked.jibunAddr,
                     route=(picked.raw or {}).get("출처", ""),
                     solar_kwh=solar, solar_self_kwh=solar_self,
-                    sources=_srcs, merge_basis=_basis)
+                    sources=_srcs, merge_basis=_basis,
+                    energy_code=(st.session_state.diag[0].get("code", "")
+                                 if st.session_state.get("diag") else ""))
                 blob = io.open(path, "rb").read()
         except tpl.TemplateError as e:
             st.error(str(e)); st.stop()

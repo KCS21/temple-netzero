@@ -101,6 +101,48 @@ def mcheck(name, fake, want, notwant=""):
     print(f"         기대 「{want}」 / 실제 「{msg.splitlines()[0]}」")
 
 
+def ycheck(name, want_code, want_total, place_must="", old_sgg="46730",
+           new_plc="전라남도 구례군 마산면 황전리 12번지",
+           old_qty=100.0, new_qty=0.0, old_plc=None):
+    """fetch_year 가 옛 시군구코드로 되묻는 규칙. 인터넷을 쓰지 않습니다.
+
+    새 코드로 열두 달이 **모두 0** 일 때만 되묻고, 받은 자료의 주소에
+    그 동네 이름이 든 것만 씁니다.
+    """
+    global _fail
+    calls = {"새": 0, "옛": 0}
+
+    def _rows(op, params, service_key, timeout, retries):
+        sgg = params["sigunguCd"]
+        is_old = sgg == old_sgg
+        calls["옛" if is_old else "새"] += 1
+        qty = old_qty if is_old else new_qty
+        plc = (old_plc if is_old and old_plc is not None
+               else new_plc)
+        if not qty:
+            return []
+        return [bldengy.MonthUse(useYm=params["useYm"], useQty=float(qty),
+                                 platGbCd="0", platPlc=plc,
+                                 raw={"platGbCd": "0"})]
+
+    real, bldengy._rows = bldengy._rows, _rows
+    try:
+        out = bldengy.fetch_year("12730", "34024", "0012", "0000", 2025,
+                                 "DUMMY", plat_gb="0", pause=0,
+                                 old_sigungu=old_sgg, place_must=place_must)
+    finally:
+        bldengy._rows = real
+
+    tot = sum(out["elec"].values()) + sum(out["gas"].values())
+    ok = out.get("code") == want_code and abs(tot - want_total) < 0.001
+    if not ok:
+        _fail += 1
+    print(f"  [{'OK' if ok else 'FAIL'}]  {name}")
+    print(f"         코드 기대 {want_code} 실제 {out.get('code')}"
+          f" · 합계 기대 {want_total:,.0f} 실제 {tot:,.0f}"
+          f" · 호출 새 {calls['새']} / 옛 {calls['옛']}")
+
+
 def main() -> int:
     print()
     print(LINE)
@@ -196,6 +238,24 @@ def main() -> int:
     mcheck("JSON 대신 HTML -> 불안정 문구", lambda *a, **k: _RHtml(),
            "제공기관 서버가 잠시 불안정합니다")
     print()
+
+    print()
+    print("  [5] 옛 시군구코드로 되묻기 (행정구역 통합)")
+    # 새 코드가 전부 0 이고 옛 코드에 자료가 있으면 -> 옛 코드 값
+    ycheck("새 코드 전부 0 -> 옛 코드로 받음", "옛", 100.0 * 24,
+           place_must="마산면")
+    # 새 코드에 자료가 있으면 되묻지 않습니다
+    ycheck("새 코드에 자료가 있으면 그대로", "새", 50.0 * 24,
+           place_must="마산면", new_qty=50.0, old_qty=100.0)
+    # 옛 코드에도 없으면 새 코드 결과(0)를 그대로
+    ycheck("옛 코드에도 없으면 0", "새", 0.0,
+           place_must="마산면", old_qty=0.0)
+    # **남의 동네가 오면 버립니다** — 지명이 안 맞는 경우
+    ycheck("옛 코드가 남의 동네를 주면 쓰지 않음", "새", 0.0,
+           place_must="마산면", old_plc="전라남도 순천시 조례동 1589-1")
+    # 옛 코드를 안 주면(통합 지역이 아니면) 되묻지 않습니다
+    ycheck("통합 지역이 아니면 되묻지 않음", "새", 0.0,
+           place_must="", old_sgg="")
 
     print(LINE)
     if _fail:

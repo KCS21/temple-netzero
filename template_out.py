@@ -128,6 +128,7 @@ def fill(
     solar_kwh: float = 0.0,
     solar_self_kwh: float = 0.0,
     sources: Sequence[dict] = (),
+    energy_code: str = "",
     merge_basis: str = "",
     route: str = "",
 ) -> str:
@@ -168,7 +169,7 @@ def fill(
     if SH_SRC in wb.sheetnames:
         _fill_sources(wb[SH_SRC], temple, year, road_addr, stamp,
                       sources or [{"지번": jibun_addr}], merge_basis, activities,
-                      route)
+                      route, energy_code=energy_code)
 
     if SH_INFO in wb.sheetnames:
         info = wb[SH_INFO]
@@ -238,15 +239,20 @@ def preview(elec_kwh: float, activities: Sequence[Activity],
 
 
 def _fill_sources(ws, temple, year, road_addr, stamp, sources,
-                  merge_basis, activities, route="") -> None:
-    """⑧조회근거 를 채웁니다. 숫자가 어디서 왔는지 남기는 자리입니다."""
+                  merge_basis, activities, route="", energy_code="") -> None:
+    """⑧조회근거 를 채웁니다. 숫자가 어디서 왔는지 남기는 자리입니다.
+
+    `energy_code` 가 「옛」이면 자료 출처 문장에 한마디 덧붙입니다.
+    **서식은 건드리지 않습니다** - 글월만 길어집니다.
+    """
     ws["C5"] = temple
     # 옆 지번에서 고른 지번은 **도로명주소가 없습니다**(작업지시 08 ②).
     # 강릉 삼산리 569 가 그렇습니다. 칸을 비워 두면 나중에 보는 사람이
     # 빠뜨린 줄 알므로, 어떤 길로 조회했는지를 대신 적습니다.
     ws["C6"] = road_addr or (f"{route} (이 지번에는 도로명주소가 없습니다)"
                              if route else "")
-    ws["C7"] = f"{year}년 사용량"
+    ws["C7"] = (f"{year}년 사용량"
+                + (" (옛 시군구코드로 조회)" if energy_code == "옛" else ""))
     ws["C8"] = f"{stamp} 조회"
     ws["C10"] = {
         "공개자료_전지번": "모든 지번에 전기 기록이 있어 합산했습니다 (고지서 확인 불필요)",

@@ -62,6 +62,32 @@ def _share_mode() -> bool:
 
 SHARE = _share_mode()
 
+def _old_sgg(sigungu_cd: str) -> str:
+    """통합 지역의 옛 시군구코드. **없으면 빈 문자열** (되묻지 않음).
+
+    `_kakao_key()` 와 같은 까닭으로 감쌉니다 — Streamlit 은 `app.py` 만
+    다시 돌리고 **불러온 모듈은 메모리에 그대로 둡니다.** 새 판을 올리면
+    `app.py` 는 새것인데 `region` 은 옛것이 남아, 아직 없는
+    `region.old_sigungu` 를 부르다 **3단계가 통째로 죽었습니다**
+    (2026-10-25, 광주의 한 절). 서버를 다시 띄우면 풀리지만 그때까지
+    아무도 조회를 못 합니다.
+
+    여기서 삼키면 **되묻기만 쉬고** 나머지 조회는 그대로 돕니다.
+    """
+    try:
+        return region.old_sigungu(sigungu_cd)
+    except Exception:
+        return ""
+
+
+def _place(addr: str) -> str:
+    """옛 코드로 받을 때 견줄 읍면동·리. 모르면 빈 문자열 (위와 같은 까닭)."""
+    try:
+        return region.place_token(addr)
+    except Exception:
+        return ""
+
+
 def _kakao_key() -> str:
     """카카오 키. **무슨 일이 있어도 도구를 멈추지 않습니다.**
 
@@ -635,8 +661,8 @@ def _merge_block(picked, year, es, gs, use):
                 e2 = bldengy.fetch_year(p2["sigunguCd"], p2["bjdongCd"], p2["bun"],
                                         p2["ji"], year, SERVICE_KEY,
                                         plat_gb=p2["platGbCd"],
-                                        old_sigungu=region.old_sigungu(p2["sigunguCd"]),
-                                        place_must=region.place_token(j2.jibunAddr))
+                                        old_sigungu=_old_sgg(p2["sigunguCd"]),
+                                        place_must=_place(j2.jibunAddr))
                 extra.append({
                     "지번": j2.jibunAddr,
                     "연면적": d2["total_area"],
@@ -734,8 +760,8 @@ if picked:
                 p["sigunguCd"], p["bjdongCd"], p["bun"], p["ji"], year, SERVICE_KEY,
                 plat_gb=p["platGbCd"],
                 # 통합된 광주·전남은 건물에너지가 옛 시군구코드에만 있습니다.
-                old_sigungu=region.old_sigungu(p["sigunguCd"]),
-                place_must=region.place_token(picked.jibunAddr),
+                old_sigungu=_old_sgg(p["sigunguCd"]),
+                place_must=_place(picked.jibunAddr),
                 progress=lambda d, t, lbl: bar.progress(d / t, text=f"{lbl} ({d}/{t})"))
         except portal.PortalError as e:
             bar.empty(); st.error(str(e)); st.stop()
@@ -776,7 +802,7 @@ if picked:
 통합 전 코드에 남아 있습니다.** 새 코드로는 열두 달이 모두 0 이어서,
 **통합 전 시군구코드({data.get('sigungu', '')})로 다시 받은 값**입니다.
 
-받은 자료의 주소에 **{region.place_token(picked.jibunAddr)}** 가 들어 있는 것만 썼습니다.
+받은 자료의 주소에 **{_place(picked.jibunAddr)}** 가 들어 있는 것만 썼습니다.
 건물 정보(동수·연면적)는 지금 코드로 받은 것입니다.""")
 
             dropped = data.get("dropped", 0)

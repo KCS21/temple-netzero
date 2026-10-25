@@ -802,7 +802,7 @@ if picked:
 통합 전 코드에 남아 있습니다.** 새 코드로는 열두 달이 모두 0 이어서,
 **통합 전 시군구코드({data.get('sigungu', '')})로 다시 받은 값**입니다.
 
-받은 자료의 주소에 **{_place(picked.jibunAddr)}** 가 들어 있는 것만 썼습니다.
+받은 자료는 **주소에 이 말이 든 것만** 썼습니다 — 「{_place(picked.jibunAddr)}」.
 건물 정보(동수·연면적)는 지금 코드로 받은 것입니다.""")
 
             dropped = data.get("dropped", 0)

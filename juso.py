@@ -55,7 +55,16 @@ class Juso:
     lnbrSlno: str = ""       # 지번 부번
     mtYn: str = "0"          # 1=산, 0=대지
     bdNm: str = ""           # 건물명
-    bdMgtSn: str = ""        # 건물관리번호
+    bdMgtSn: str = ""        # 건물관리번호. **법정동코드+산+번+지가 들어 있습니다**
+    # 아래 둘은 `addInfoYn=Y` 로 불러야 옵니다. **받아 두기만 합니다.**
+    #
+    # 도로명 하나에 지번이 여럿 묶인 곳에서 `jibunAddr` 는 **대표 지번
+    # 하나**일 뿐이고, 그것이 대장 있는 지번이라는 보장이 없습니다.
+    # 조계사가 그랬습니다 — 「우정국로 55」가 견지동 46-1 을 주는데
+    # 대장은 **수송동 44** 에 있고, `bdMgtSn` 이 그 수송동 44 를
+    # 가리키고 있었습니다(2026-10-25, 검증할주소.md).
+    relJibun: str = ""       # 관련지번. 법정동이 섞여 올 수 있습니다
+    detBdNmList: str = ""    # 상세건물명 (「조계사대웅전,조계사일주문,…」)
     name_hit: bool = False   # 건물명에 검색어가 들어감 = 절 이름으로 찾은 것
     raw: dict = field(default_factory=dict, repr=False)
 
@@ -255,7 +264,9 @@ def search(
         "resultType": "json",
         "hstryYn": "N",
         "firstSort": "none",
-        "addInfoYn": "N",
+        # **Y 로 받습니다.** relJibun·detBdNmList 가 여기서만 옵니다.
+        # 화면에는 아무것도 안 보이고, 받아 두기만 합니다.
+        "addInfoYn": "Y",
     }
 
     last_err = None
@@ -297,6 +308,8 @@ def _unpack(data: dict) -> Tuple[List[Juso], int]:
             mtYn=str(j.get("mtYn", "0")).strip(),
             bdNm=j.get("bdNm", ""),
             bdMgtSn=j.get("bdMgtSn", ""),
+            relJibun=j.get("relJibun", ""),
+            detBdNmList=j.get("detBdNmList", ""),
             raw=j,
         )
         for j in rows

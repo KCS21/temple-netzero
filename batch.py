@@ -232,6 +232,10 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
         keep["주용도"] = " / ".join(
             sorted({(d.mainPurpsCdNm or '').strip() for d in dongs}
                    - {''}))
+        # 기타용도도 함께. 금산사 미륵전은 주용도가 문화및집회시설이고
+        # **기타용도의 「법당」**만이 절이라는 단서였습니다(2026-10-25).
+        keep["기타용도"] = " / ".join(
+            sorted({(d.etcPurps or '').strip() for d in dongs} - {''}))
         keep["건물명"] = j.bdNm
     area = s.get("total_area", 0.0)
 

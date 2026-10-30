@@ -281,6 +281,19 @@ STATS = (("42", "kW", "법문사 옥상 태양광"),
          ("22.18", "톤", "온실가스 감축"))
 
 
+def _practice():
+    """법문사 사례 — 컨설팅 요청 쪽 맨 위에 둡니다."""
+    _b, secs = content.sections(BODY)
+    title, done = content.find(secs, "먼저 해 본")
+    st.markdown(f"## {title or '먼저 해 본 곳'}")
+    st.markdown('<div class="jisu-cards">' + "".join(
+        f'<div class="jisu-stat"><div class="v"><b>{v}</b> {u}</div>'
+        f'<div class="l">{l}</div></div>' for v, u, l in STATS) + "</div>",
+        unsafe_allow_html=True)
+    if done:
+        st.markdown(f'<p class="jisu-small">{done}</p>', unsafe_allow_html=True)
+
+
 def page_intro():
     lead, secs = content.sections(BODY)
     tagline = lead.strip("* ").strip() or content.SITE_TITLE
@@ -294,20 +307,9 @@ def page_intro():
                         '<div class="jisu-hero-s">불교에너지전문가들이 사찰을 찾아가 '
                         "에너지를 진단하고 탄소중립 로드맵을 함께 세웁니다. "
                         "사찰 컨설팅은 무료입니다.</div>", unsafe_allow_html=True)
-            st.write("")
-            _two_buttons("hero")
         hero = content.img("temple_solar.png")
         if hero:
             c_img.image(hero, width="stretch")
-
-    # 2. 숫자 띠
-    st.markdown('<div class="jisu-cards">' + "".join(
-        f'<div class="jisu-stat"><div class="v"><b>{v}</b> {u}</div>'
-        f'<div class="l">{l}</div></div>' for v, u, l in STATS) + "</div>",
-        unsafe_allow_html=True)
-    _t, done = content.find(secs, "먼저 해 본")
-    if done:
-        st.markdown(f'<p class="jisu-small">{done}</p>', unsafe_allow_html=True)
 
     # 3. 우리는 / 하는 일
     if who:
@@ -332,13 +334,6 @@ def page_intro():
         with st.container(key="band"):
             st.markdown(f"## {t}")
             st.markdown(_cards(items, numbered=True), unsafe_allow_html=True)
-            hp = content.img("heatpump.png")
-            if hp:
-                c1, c2 = st.columns([2, 3], vertical_alignment="center")
-                c1.image(hp, width="stretch")
-                c2.markdown("**감축**의 중심은 히트펌프입니다. 전기판넬·등유 보일러를 "
-                            "바꾸면 난방 에너지가 크게 줍니다. 그다음에 남은 전기를 "
-                            "태양광으로 채웁니다.")
     elif t:
         st.markdown(f"## {t}")
         st.markdown(x)
@@ -799,6 +794,7 @@ def page_result():
 
 # ═══════════ ④ 컨설팅 요청 ═══════════
 def page_request():
+    _practice()
     st.markdown("## 컨설팅 요청")
     st.markdown("지수광풍은 사찰을 대상으로 **무료 컨설팅**을 하고 있습니다. "
                 "아래를 적어 보내 주시면 연락드립니다.")

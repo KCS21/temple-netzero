@@ -24,7 +24,9 @@ import threading
 import streamlit as st
 
 import bldengy
+import bldrgst
 import juso
+import kakao
 import keys
 import portal
 import region
@@ -41,6 +43,7 @@ BUSY_TEXT = "자료 서버가 바쁩니다. 잠시 뒤 다시 시도해 주세�
 LIMIT_TEXT = "조회를 여러 번 하셨습니다. 잠시 뒤 다시 시도해 주세요."
 
 DARK, GREEN, PALE = "#1E5631", "#2F6B3F", "#E4F0E6"
+MIST, GOLD = "#F4F9F5", "#F2C14E"     # 아주 옅은 바탕 · 숫자 강조에만 조금
 
 st.set_page_config(page_title=content.SITE_TITLE, layout="centered",
                    initial_sidebar_state="collapsed")
@@ -57,24 +60,29 @@ st.markdown(f"""
   .stMarkdown h2 {{ font-size: 24px; margin-top: 1.4rem; padding-bottom: 0.3rem;
       border-bottom: 2px solid {PALE}; }}
   [data-testid="stHeader"] {{ background: transparent; }}
-  .block-container {{ padding-top: 1.2rem; max-width: 760px; }}
+  .block-container {{ padding-top: 1.2rem; max-width: 980px; }}
 
   .jisu-head {{ background: {DARK}; color: #fff; border-radius: 12px;
       padding: 18px 20px 14px; margin-bottom: 10px; }}
   .jisu-head .t {{ font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }}
   .jisu-head .s {{ font-size: 16px; opacity: 0.9; margin-top: 2px; }}
 
-  /* 쪽 이동 — 휴대폰에서 줄이 넘어가도 누르기 쉽게 */
-  .st-key-nav div[role="radiogroup"] {{ gap: 6px; flex-wrap: wrap; }}
-  .st-key-nav div[role="radiogroup"] > label {{ background: {PALE};
-      border-radius: 999px; padding: 8px 16px; margin: 0; }}
-  .st-key-nav label[data-selected="true"], .st-key-nav label:has(input:checked) {{
-      background: {GREEN}; }}
-  .st-key-nav label[data-selected="true"] p, .st-key-nav label:has(input:checked) p {{
+  /* 쪽 이동 — 탭 모양. 휴대폰에서도 한 줄에 넷이 들어가게 */
+  .st-key-nav {{ border-bottom: 3px solid {DARK}; margin-bottom: 14px; }}
+  .st-key-nav [data-testid="stHorizontalBlock"] {{ flex-wrap: nowrap !important;
+      gap: 4px !important; }}
+  .st-key-nav [data-testid="stColumn"], .st-key-nav [data-testid="column"] {{
+      min-width: 0 !important; flex: 1 1 0 !important; width: auto !important; }}
+  .st-key-nav button {{ width: 100%; border-radius: 10px 10px 0 0 !important;
+      border: none !important; padding: 0.55rem 0.2rem !important;
+      background: {PALE} !important; color: {DARK} !important; }}
+  .st-key-nav button[kind^="primary"] {{ background: {DARK} !important;
       color: #fff !important; }}
-  .st-key-nav label > div > div > div:first-child:not([data-testid]) {{ display: none; }}
-  .st-key-nav div[role="radiogroup"] p {{ font-size: 18px; font-weight: 700;
-      color: {DARK}; }}
+  .st-key-nav .stButton button p {{ font-size: 17px !important; white-space: nowrap; }}
+  .st-key-nav [data-testid="stColumn"]:last-child {{ flex-grow: 1.4 !important; }}
+  @media (max-width: 480px) {{
+      .st-key-nav .stButton button p {{ font-size: 15px !important;
+          letter-spacing: -0.5px; }} }}
 
   .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {{
       font-size: 19px; font-weight: 700; padding: 0.65rem 1.4rem;
@@ -88,6 +96,8 @@ st.markdown(f"""
       border-color: {DARK} !important; color: {DARK} !important; background: {PALE}; }}
   /* 고른 동그라미·네모도 녹색으로 (테마 파일은 컨설턴트 앱과 함께 써서 못 바꿈) */
   [data-testid="stRadioOption"][data-selected="true"] > div > div > div:first-child:not([data-testid]) {{
+      background-color: {GREEN} !important; border-color: {GREEN} !important; }}
+  div[role="radiogroup"] label:has(input:checked) > div:first-child {{
       background-color: {GREEN} !important; border-color: {GREEN} !important; }}
   [data-testid="stCheckbox"] label[data-selected="true"] > div:has(> svg) {{
       background-color: {GREEN} !important; border-color: {GREEN} !important; }}
@@ -108,6 +118,34 @@ st.markdown(f"""
   .jisu-small {{ color: #555; font-size: 16px; }}
   .jisu-foot {{ margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid #ddd;
       color: #555; font-size: 16px; }}
+
+  /* ── 소개 화면 ── */
+  .st-key-hero {{ background: {DARK}; border-radius: 16px; padding: 28px 24px 22px;
+      margin-bottom: 18px; }}
+  .st-key-hero .stMarkdown p, .st-key-hero h1 {{ color: #fff !important; }}
+  .jisu-hero-t {{ font-size: 30px; font-weight: 800; line-height: 1.4;
+      letter-spacing: -0.5px; color: #fff; margin: 4px 0 10px; }}
+  .jisu-hero-s {{ font-size: 18px; color: #DDEBDF; line-height: 1.7; }}
+  .st-key-hero button[kind^="secondary"] {{ background: #fff !important;
+      color: {DARK} !important; border-color: #fff !important; }}
+  .st-key-hero button[kind^="primary"] {{ background: {GOLD} !important;
+      color: #1b1b1b !important; border-color: {GOLD} !important; }}
+  .st-key-hero img {{ border-radius: 12px; }}
+  .jisu-cards {{ display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0 18px; }}
+  .jisu-card {{ flex: 1 1 200px; background: #fff; border: 1.5px solid {PALE};
+      border-radius: 14px; padding: 16px 16px 14px;
+      box-shadow: 0 1px 4px rgba(30, 86, 49, 0.07); }}
+  .jisu-card .n {{ font-size: 34px; font-weight: 800; color: {GREEN}; line-height: 1; }}
+  .jisu-card .t {{ font-size: 20px; font-weight: 800; color: {DARK}; margin: 6px 0 4px; }}
+  .jisu-card .d {{ font-size: 17px; color: #333; line-height: 1.65; }}
+  .jisu-stat {{ flex: 1 1 180px; background: {MIST}; border: 1.5px solid {PALE};
+      border-radius: 14px; padding: 16px; text-align: center; }}
+  .jisu-stat .v {{ font-size: 28px; font-weight: 800; color: {DARK}; }}
+  .jisu-stat .v b {{ border-bottom: 4px solid {GOLD}; }}
+  .jisu-stat .l {{ font-size: 16px; color: {GREEN}; margin-top: 2px; }}
+  .st-key-band {{ background: {MIST}; border-radius: 16px; padding: 18px 18px 6px;
+      margin: 10px 0 14px; }}
+  .st-key-band img, .st-key-row1 img, .st-key-row2 img {{ border-radius: 12px; }}
 
   /* 자동 입력 막기용 칸. 사람에게는 보이지 않습니다 */
   .st-key-hp {{ position: absolute !important; left: -10000px !important;
@@ -166,10 +204,11 @@ CONTACT = content.contact_line(SETTINGS)
 
 for k, v in [("nav", PAGES[0]), ("rows", []), ("total", 0), ("kw", ""),
              ("search_err", ""), ("searched", False), ("picked", None),
-             ("picked_i", None), ("result", None), ("queries", 0),
+             ("result", None), ("queries", 0),
              ("diag_sent", None), ("pdf", None), ("pdf_sig", None),
              ("look_err", ""), ("no_data", ""), ("req_sent", 0),
-             ("req_msg", None), ("mode", "find")]:
+             ("req_msg", None), ("mode", "find"), ("page", 1),
+             ("places", []), ("places_err", "")]:
     st.session_state.setdefault(k, v)
 
 
@@ -184,13 +223,127 @@ st.markdown(f'<div class="jisu-head"><div class="t">{content.SITE_TITLE}</div>'
             unsafe_allow_html=True)
 if st.session_state.get("goto"):
     st.session_state.nav = st.session_state.pop("goto")
-st.radio("쪽", PAGES, key="nav", horizontal=True, label_visibility="collapsed")
+with st.container(key="nav"):
+    # 라디오는 빨간 점이 남아 홈페이지처럼 보이지 않았습니다(작업지시 11 ③).
+    # 고른 쪽만 primary 로 그려 짙은 녹색 탭이 됩니다.
+    for col, name in zip(st.columns(len(PAGES)), PAGES):
+        col.button(name, key=f"tab_{name}", width="stretch",
+                   type="primary" if st.session_state.nav == name else "secondary",
+                   on_click=go, args=(name,))
 
 
 # ═══════════ ① 소개 ═══════════
+def _two_buttons(key: str):
+    c1, c2 = st.columns(2)
+    c1.button("우리 절 자가진단", key=f"{key}_check", type="primary",
+              width="stretch", on_click=go, args=("자가진단",))
+    c2.button("무료 컨설팅 요청", key=f"{key}_req", width="stretch",
+              on_click=go, args=("컨설팅 요청",))
+
+
+def _cards(items, numbered: bool = False) -> str:
+    out = []
+    for i, (t, d) in enumerate(items, 1):
+        n = f'<div class="n">{i}</div>' if numbered else ""
+        out.append(f'<div class="jisu-card">{n}<div class="t">{t}</div>'
+                   f'<div class="d">{d}</div></div>')
+    return '<div class="jisu-cards">' + "".join(out) + "</div>"
+
+
+def _text_and_image(key: str, title: str, text: str, image: str,
+                    image_left: bool = False):
+    """글 + 그림 좌우. 휴대폰에서는 그림이 아래로 갑니다."""
+    if not title:
+        return
+    with st.container(key=key):
+        st.markdown(f"## {title}")
+        if not image:
+            st.markdown(text)
+            return
+        if image_left:
+            c_img, c_txt = st.columns([2, 3], vertical_alignment="center")
+        else:
+            c_txt, c_img = st.columns([3, 2], vertical_alignment="center")
+        c_txt.markdown(text)
+        c_img.image(image, width="stretch")
+
+
+# 소개글의 「지수광풍이 하는 일」을 세 칸으로. 문장은 소개글 그대로에서 땄습니다.
+WORK_CARDS = (
+    ("진단", "사찰과 불교계 기관을 찾아가 에너지 사용과 온실가스 배출을 진단합니다."),
+    ("로드맵", "에너지 절약·그린리모델링·재생에너지로 가는 탄소중립 로드맵을 함께 세웁니다."),
+    ("실행 지원", "실행한 뒤에도 꾸준히 살피고 돕습니다. 공사로 이익을 남기지 않고 "
+                  "사찰의 입장에서 자문합니다."),
+)
+# 법문사 옥상 태양광 (소개글 「먼저 해 본 곳」)
+STATS = (("42", "kW", "법문사 옥상 태양광"),
+         ("48,313", "kWh", "한 해 생산"),
+         ("22.18", "톤", "온실가스 감축"))
+
+
 def page_intro():
-    if BODY:
-        st.markdown(BODY)
+    lead, secs = content.sections(BODY)
+    tagline = lead.strip("* ").strip() or content.SITE_TITLE
+    who_t, who = content.find(secs, "우리는")
+
+    # 1. 히어로
+    with st.container(key="hero"):
+        c_txt, c_img = st.columns([3, 2], vertical_alignment="center")
+        with c_txt:
+            st.markdown(f'<div class="jisu-hero-t">{tagline}</div>'
+                        '<div class="jisu-hero-s">불교에너지전문가들이 사찰을 찾아가 '
+                        "에너지를 진단하고 탄소중립 로드맵을 함께 세웁니다. "
+                        "사찰 컨설팅은 무료입니다.</div>", unsafe_allow_html=True)
+            st.write("")
+            _two_buttons("hero")
+        hero = content.img("temple_solar.png")
+        if hero:
+            c_img.image(hero, width="stretch")
+
+    # 2. 숫자 띠
+    st.markdown('<div class="jisu-cards">' + "".join(
+        f'<div class="jisu-stat"><div class="v"><b>{v}</b> {u}</div>'
+        f'<div class="l">{l}</div></div>' for v, u, l in STATS) + "</div>",
+        unsafe_allow_html=True)
+    _t, done = content.find(secs, "먼저 해 본")
+    if done:
+        st.markdown(f'<p class="jisu-small">{done}</p>', unsafe_allow_html=True)
+
+    # 3. 우리는 / 하는 일
+    if who:
+        st.markdown(f"## {who_t}")
+        st.markdown(who)
+    work_t, work = content.find(secs, "하는 일")
+    if work_t:
+        st.markdown(f"## {work_t}")
+        st.markdown(_cards(WORK_CARDS), unsafe_allow_html=True)
+        st.markdown(work)
+
+    # 4·5. 오래된 가르침 · 사찰의 현실
+    t, x = content.find(secs, "가르침")
+    _text_and_image("row1", t, x, content.img("cycle.png"))
+    t, x = content.find(secs, "현실")
+    _text_and_image("row2", t, x, content.img("meter_fuel.png"), image_left=True)
+
+    # 6. 순서가 중요합니다
+    t, x = content.find(secs, "순서")
+    items = content.steps(x)
+    if t and items:
+        with st.container(key="band"):
+            st.markdown(f"## {t}")
+            st.markdown(_cards(items, numbered=True), unsafe_allow_html=True)
+            hp = content.img("heatpump.png")
+            if hp:
+                c1, c2 = st.columns([2, 3], vertical_alignment="center")
+                c1.image(hp, width="stretch")
+                c2.markdown("**감축**의 중심은 히트펌프입니다. 전기판넬·등유 보일러를 "
+                            "바꾸면 난방 에너지가 크게 줍니다. 그다음에 남은 전기를 "
+                            "태양광으로 채웁니다.")
+    elif t:
+        st.markdown(f"## {t}")
+        st.markdown(x)
+
+    # 7. 단장 인사말 (설정 칸이 비면 숨김)
     g = content.greeting(SETTINGS)
     if g:
         title, text, photo = g
@@ -201,24 +354,97 @@ def page_intro():
             c2.markdown(text)
         else:
             st.markdown(text)
-    st.write("")
-    st.button("자가진단 해 보기", type="primary", width="stretch",
-              on_click=go, args=("자가진단",))
+
+    # 8. 함께하는 곳 · 시작하기
+    with_t, with_x = content.find(secs, "함께")
+    start_t, start_x = content.find(secs, "시작")
+    lotus = content.img("lotus.png")
+    if start_t or with_t:
+        st.markdown(f"## {start_t or with_t}")
+        c_img, c_txt = st.columns([1, 3], vertical_alignment="center")
+        if lotus:
+            c_img.image(lotus, width="stretch")
+        with c_txt:
+            if start_x:
+                st.markdown(start_x)
+            if with_x:
+                st.markdown(f"**{with_t}** · {with_x}")
+        _two_buttons("end")
+
+    # md 에 새 칸을 더하면 여기서 그대로 보입니다(빠뜨리지 않도록)
+    shown = ("우리는", "하는 일", "가르침", "현실", "순서", "먼저 해 본", "함께", "시작")
+    for title, text in secs.items():
+        if not any(k in title for k in shown):
+            st.markdown(f"## {title}")
+            st.markdown(text)
 
 
 # ═══════════ ② 자가진단 ═══════════
-def _run_search(keyword: str):
+def _run_search(keyword: str, page: int = 1, keep_places: bool = False):
     try:
-        rows, total = juso.search(keyword, CONFM_KEY, per_page=PER_PAGE)
+        rows, total = juso.search(keyword, CONFM_KEY, page=page, per_page=PER_PAGE)
         err = ""
     except juso.JusoError as e:
         rows, total = [], 0
         err = portal.hide_keys(str(e))
     except Exception:
         rows, total, err = [], 0, "주소 검색이 잠시 되지 않습니다. 잠시 뒤 다시 찾아 주세요."
-    st.session_state.update(rows=rows, total=total, kw=keyword, search_err=err,
-                            searched=True, picked=None, picked_i=None,
-                            look_err="", no_data="")
+    st.session_state.update(rows=rows, total=total, page=page, kw=keyword,
+                            search_err=err, searched=True, picked=None,
+                            addr_pick=None, look_err="", no_data="")
+    if not keep_places:
+        st.session_state.update(places=[], places_err="", place_pick=None)
+
+
+def _direct_block():
+    """지번을 손으로 넣기 — 컨설턴트 앱 「자세히 — 지번을 직접 넣어 조회하기」와 같은 흐름.
+
+    **접어 둡니다.** 도로명이 없는 지번은 주소 검색에 무엇을 넣어도 안 나옵니다.
+    그 동네를 찾아 행정구역코드만 빌리고 번·지는 갈아 끼웁니다(`juso.sibling`).
+    """
+    with st.expander("지번을 직접 넣기 (주소 검색에 안 나올 때)", expanded=False):
+        st.markdown('<p class="jisu-small">고지서나 지도 앱에서 <b>지번을 확인하신 뒤</b> '
+                    "넣어 주세요.</p>", unsafe_allow_html=True)
+        dong = st.text_input("시·군·구와 동·리 이름", key="dj_dong",
+                             placeholder="예: 강릉시 연곡면 삼산리")
+        c1, c2 = st.columns(2)
+        bun = c1.text_input("번 (본번)", key="dj_bun", placeholder="예: 569")
+        ji = c2.text_input("지 (부번) - 없으면 비워 두세요", key="dj_ji",
+                           placeholder="예: 3")
+        if not st.button("이 지번으로 찾기", key="dj_go", width="stretch"):
+            return
+        bun_s, ji_s = str(bun or "").strip(), str(ji or "").strip() or "0"
+        if not (dong or "").strip() or not bun_s.isdigit() or not ji_s.isdigit():
+            st.warning("동·리 이름과 번(숫자)을 넣어 주세요. 지(부번)가 없으면 비워 두세요.")
+            return
+        try:
+            rows, _ = juso.search(dong.strip(), CONFM_KEY, per_page=1)
+        except Exception:
+            rows = []
+        if not rows:
+            st.warning("그 동네를 찾지 못했습니다. 시·군과 동·리 이름을 함께 넣어 보세요. "
+                       "예: 강릉시 연곡면 삼산리")
+            return
+        j = juso.sibling(rows[0], int(bun_s), int(ji_s), inherit_name=False)
+        st.session_state.update(picked=j, look_err="", no_data="")
+        st.rerun()
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _purposes(sgg, bjd, bun, ji, plat):
+    """그 지번 건물들의 주용도. 하루 동안 다시 씁니다."""
+    dongs = bldrgst.fetch_dongs(sgg, bjd, bun, ji, SERVICE_KEY, plat)
+    return [d.mainPurpsCdNm for d in dongs]
+
+
+def _odd_place(j) -> bool:
+    """절이 아닐 수 있는 주소인가. 조회가 안 되면 조용히 넘어갑니다."""
+    p = j.building_params()
+    try:
+        ps = _purposes(p["sigunguCd"], p["bjdongCd"], p["bun"], p["ji"], p["platGbCd"])
+    except Exception:
+        return False
+    return sc.not_temple(ps)
 
 
 def _old_sgg(sgg: str) -> str:
@@ -302,40 +528,115 @@ def page_check():
         _bill_block()
 
 
+def _kakao_key() -> str:
+    """카카오 키. **어떤 오류든 삼키고 빈 문자열**(컨설턴트 앱 `_kakao_key` 와 같은 까닭)."""
+    try:
+        return keys.kakao()
+    except Exception:
+        return ""
+
+
+KAKAO_KEY = _kakao_key() if LOOKUP_ON else ""
+
+
+def _is_name(kw: str) -> bool:
+    """숫자가 없으면 절 이름으로 찾는 것으로 봅니다. 「구산동 314」는 주소."""
+    return not any(c.isdigit() for c in (kw or ""))
+
+
+def _map_search(kw: str):
+    """지도에서 절 이름 찾기. 결과는 **화면에만** 두고 저장하지 않습니다(CLAUDE.md 7장)."""
+    st.session_state.update(places=[], places_err="", place_pick=None)
+    if not (KAKAO_KEY and _is_name(kw)):
+        return
+    try:
+        st.session_state.places = kakao.search(kw, KAKAO_KEY)[0]
+    except Exception:
+        # 지도 칸은 어떤 오류가 나도 거기서 끝냅니다. 주소 검색은 그대로 돕니다.
+        st.session_state.places_err = ("지도 검색이 잠시 되지 않습니다. "
+                                       "아래 주소 검색 결과를 봐 주세요.")
+
+
+def _pick_row():
+    i = st.session_state.get("addr_pick")
+    rows = st.session_state.rows
+    if i is not None and i < len(rows):
+        st.session_state.update(picked=rows[i], look_err="", no_data="")
+
+
+def _pick_place():
+    i = st.session_state.get("place_pick")
+    places = st.session_state.get("places") or []
+    if i is None or i >= len(places):
+        return
+    # 고른 곳을 도로명주소로 **다시** 찾습니다. 그 결과만 씁니다.
+    _run_search(places[i].search_key, keep_places=True)
+
+
+def _place_label(pl) -> str:
+    return f"{pl.name}  ·  {pl.jibun or pl.road or '주소 없음'}"
+
+
 def _find_block():
     st.markdown("#### 1. 주소 또는 절 이름으로 찾기")
+    st.markdown('<p class="jisu-small">같은 이름의 절이 많습니다. <b>시·군 이름을 함께</b> '
+                "넣으면 잘 찾아집니다. 예: 원오사 양주</p>", unsafe_allow_html=True)
     with st.form("search"):
         kw = st.text_input("주소 또는 절 이름", value=st.session_state.kw,
-                           placeholder="예: 구산동 314  또는  절 이름")
+                           placeholder="예: 구산동 314  또는  원오사 양주")
         go_search = st.form_submit_button("찾기", type="primary", width="stretch")
     if go_search:
-        _run_search(kw)
+        _map_search(kw)
+        _run_search(kw, keep_places=True)
+
+    # ── 지도 결과 (이름으로 찾을 때 먼저) ──
+    places = st.session_state.get("places") or []
+    if st.session_state.get("places_err"):
+        st.info(st.session_state.places_err)
+    if places:
+        st.markdown(f"**지도에서 {len(places)}곳**을 찾았습니다. 우리 절을 고르시면 "
+                    "그 주소로 다시 찾습니다.")
+        st.radio("지도 결과", list(range(len(places))), key="place_pick",
+                 format_func=lambda k: _place_label(places[k]), index=None,
+                 label_visibility="collapsed", on_change=_pick_place)
 
     if st.session_state.search_err:
         st.warning(st.session_state.search_err)
     rows = st.session_state.rows
-    if st.session_state.searched and not rows:
-        if not st.session_state.search_err:
-            st.warning("찾으시는 주소가 없습니다. 동 이름과 번지로 다시 찾아 보세요. "
-                       "예: 은평구 구산동 314")
-        st.info("절 이름은 **건물 이름이 등록된 절만** 찾아집니다. "
-                "찾아지지 않으면 위에서 **「고지서 숫자로 직접 넣기」**를 골라 주세요.")
-        return
-    if not rows:
-        return
-
-    st.markdown(f"**{st.session_state.total:,}건** 중 앞의 {len(rows)}건입니다. "
-                "우리 절을 골라 주세요.")
-    i = st.radio("주소 고르기", list(range(len(rows))),
+    if st.session_state.searched and not rows and not st.session_state.search_err:
+        st.warning("주소 검색에서는 찾지 못했습니다. 동 이름과 번지로 다시 찾아 보세요. "
+                   "예: 은평구 구산동 314")
+        st.info("절 이름은 **건물 이름이 등록된 절만** 주소 검색에 나옵니다. "
+                "찾아지지 않으면 아래 「지번을 직접 넣기」나, 위의 "
+                "**「고지서 숫자로 직접 넣기」**를 골라 주세요.")
+    if rows:
+        total, page = st.session_state.total, st.session_state.page
+        last = max(1, (total + PER_PAGE - 1) // PER_PAGE)
+        st.markdown(f"**주소 검색 {total:,}건** 중 {page}쪽입니다. 우리 절을 골라 주세요.")
+        st.radio("주소 고르기", list(range(len(rows))), key="addr_pick",
                  format_func=lambda k: rows[k].label(), index=None,
-                 label_visibility="collapsed")
-    st.markdown('<p class="jisu-small">우리 절이 없으면 동 이름과 번지로 다시 찾거나, '
-                "「고지서 숫자로 직접 넣기」를 골라 주세요.</p>", unsafe_allow_html=True)
-    if i is None:
-        return
-    if st.session_state.picked_i != i:
-        st.session_state.update(picked=rows[i], picked_i=i, look_err="", no_data="")
+                 label_visibility="collapsed", on_change=_pick_row)
+        c1, c2, c3 = st.columns(3)
+        if page > 1:
+            c1.button("앞으로", key="pg_prev", width="stretch",
+                      on_click=_run_search, args=(st.session_state.kw, page - 1, True))
+        if page < last:
+            c2.button("더 보기", key="pg_next", width="stretch",
+                      on_click=_run_search, args=(st.session_state.kw, page + 1, True))
+        kw_now = (st.session_state.kw or "").rstrip()
+        if not any(r.is_mountain for r in rows) and not kw_now.endswith("산"):
+            # 산중 사찰은 산 지번이 뒤쪽 쪽수에 묻히는 일이 많습니다.
+            c3.button("산 지번만 찾기", key="mt_go", width="stretch",
+                      on_click=_run_search, args=(kw_now + " 산", 1, True))
+    _direct_block()
+
     j = st.session_state.picked
+    if j is None:
+        return
+    st.markdown("---")
+    st.markdown(f"**고른 주소:** {j.jibunAddr}")
+    if _odd_place(j):
+        st.warning(sc.NOT_TEMPLE_TEXT)
     if j.name_hit:
         st.warning("이름으로 찾은 주소입니다. **주소가 맞는지 확인해 주세요.** "
                    "같은 이름의 다른 절이 흔합니다.")

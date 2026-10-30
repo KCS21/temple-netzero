@@ -16,6 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
+import bldrgst
 import emissions as em
 
 # ── 난방 수단 (여러 개 고르기) ──
@@ -230,3 +231,24 @@ def diag_payload(r: Result, version: str = "") -> dict:
         "유형": r.kind,
         "앱 버전": version,
     }
+
+
+# ── 고른 주소가 절이 맞는지 (작업지시 11 ②) ──
+# **종교시설이 없다고 바로 경고하지 않습니다**(CLAUDE.md 7장). 종교집회장은
+# 500m2 미만이면 제2종근린생활시설이고 요사채는 단독주택으로 잡힙니다.
+# 그래서 종교시설도 없고, **절에 흔한 용도(근린생활·주택)도 아닌 것**이
+# 있을 때만 안내합니다 — 학교·숙박·업무시설 같은 것. 컨설턴트 앱의
+# `bldrgst.ODD_PURPOSES` 에 걸리면 종교시설이 있어도 안내합니다.
+TEMPLE_OK = ("종교", "근린생활", "단독주택", "주택", "노유자")
+NOT_TEMPLE_TEXT = "이 주소의 건물이 절이 아닐 수 있습니다. 주소를 확인해 주세요."
+
+
+def not_temple(purposes) -> bool:
+    ps = [str(p or "").strip() for p in (purposes or ()) if str(p or "").strip()]
+    if not ps:
+        return False                    # 건물이 없으면 이 안내가 아니라 자료 없음으로
+    if any(any(k in p for k in bldrgst.ODD_PURPOSES) for p in ps):
+        return True
+    if any("종교" in p for p in ps):
+        return False
+    return any(not any(k in p for k in TEMPLE_OK) for p in ps)

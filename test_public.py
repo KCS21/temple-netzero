@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-공개 홈페이지 확인 (작업지시 10 7장)
+공개 홈페이지 확인 (작업지시 10 7장 · 11)
 
 실행:  python test_public.py
 
@@ -76,6 +76,76 @@ def good_form(**kw):
          "자가진단 요약": ""}
     f.update(kw)
     return f
+
+
+def _screen_tests():
+    """AppTest 로 화면을 돌립니다. 검색 모듈은 가짜로 바꿔 끼웁니다."""
+    import logging
+    import bldrgst
+    import juso
+    import kakao
+    import keys
+    from streamlit.testing.v1 import AppTest
+    logging.getLogger("streamlit").setLevel(logging.ERROR)
+
+    def fake_rows(n, mountain=False):
+        return [juso.Juso(jibunAddr=f"어느군 어느면 어느리 {i + 1}", admCd="1111010100",
+                          lnbrMnnm=str(i + 1), mtYn="1" if mountain else "0",
+                          bdNm="시험사") for i in range(n)]
+
+    calls = []
+
+    def fake_search(kw, key, page=1, per_page=5, **_k):
+        calls.append((kw, page))
+        n = 12 if "많이" in kw else 1
+        rows = fake_rows(n)[(page - 1) * per_page: page * per_page]
+        return rows, n
+
+    saved = (keys.load, keys.kakao, juso.search, kakao.search, bldrgst.fetch_dongs)
+    map_calls = []
+    keys.load = lambda *a, **k: ("가짜승인키", "가짜인증키")
+    juso.search = fake_search
+    kakao.search = lambda kw, key, *a, **k: (map_calls.append(kw) or
+                                             [kakao.Place(name="시험사", jibun="어느군 1")], 1)
+    bldrgst.fetch_dongs = lambda *a, **k: []
+    app = os.path.join(HERE, "public_app.py")
+    try:
+        def run(kw, kakao_key=""):
+            keys.kakao = lambda *a, **k: kakao_key
+            at = AppTest.from_file(app, default_timeout=60).run()
+            at.session_state["nav"] = "자가진단"
+            at.run()
+            at.text_input[0].set_value(kw)
+            at.button(key="FormSubmitter:search-찾기").click()
+            return at.run()
+
+        at = run("시험사")
+        ok("카카오 키 없음 -> 지도 칸 숨김", not map_calls and
+           not [r for r in at.radio if r.label == "지도 결과"])
+        at = run("시험사", "가짜카카오키")
+        ok("카카오 키 있고 이름 검색 -> 지도 결과를 먼저",
+           map_calls == ["시험사"] and [r for r in at.radio if r.label == "지도 결과"])
+        map_calls.clear()
+        at = run("어느리 314", "가짜카카오키")
+        ok("번지가 든 주소는 지도를 부르지 않음", not map_calls)
+
+        at = run("많이 나오는 절")
+        labels = [b.label for b in at.button]
+        ok("결과 6건 이상 -> 「더 보기」", "더 보기" in labels)
+        at.button(key="pg_next").click()
+        at.run()
+        ok("더 보기 -> 2쪽을 부름", calls[-1] == ("많이 나오는 절", 2))
+        ok("산 지번 단추", "산 지번만 찾기" in [b.label for b in at.button])
+        at.button(key="mt_go").click()
+        at.run()
+        ok("산 지번만 찾기 -> 검색어 끝에 「산」", calls[-1] == ("많이 나오는 절 산", 1))
+        at = run("시험사")
+        ok("결과 5건 이하 -> 더 보기 없음", "더 보기" not in [b.label for b in at.button])
+        ok("지번 직접 넣기 칸이 있음 (접어 둠)",
+           any("지번을 직접 넣기" in e.label for e in at.expander))
+        ok("화면 오류 없음", not at.exception)
+    finally:
+        keys.load, keys.kakao, juso.search, kakao.search, bldrgst.fetch_dongs = saved
 
 
 def main() -> int:
@@ -268,6 +338,18 @@ def main() -> int:
        == "지수광풍_자가진단_수국사_20261030.pdf")
     rb = sc.diagnose("고지서사", "", None, sc.MODE_BILL, 5000)
     ok("월별 없이도 만들어짐", report_pdf.build(rb)[:5] == b"%PDF-")
+
+    print("\n[8] 절이 맞는지 (작업지시 11 ②)")
+    ok("종교시설 -> 안내 없음", not sc.not_temple(["종교시설", "단독주택"]))
+    ok("작은 절(근린생활·주택만) -> 안내 없음",
+       not sc.not_temple(["제2종근린생활시설", "단독주택"]))
+    ok("업무시설 -> 안내", sc.not_temple(["업무시설"]))
+    ok("교육연구시설(학교) -> 안내", sc.not_temple(["교육연구시설"]))
+    ok("종교시설이 있어도 숙박시설이 섞이면 안내", sc.not_temple(["종교시설", "숙박시설"]))
+    ok("건물이 없으면 이 안내는 안 띄움", not sc.not_temple([]))
+
+    print("\n[9] 주소 찾기 화면 (가짜 검색, 인터넷 안 씀)")
+    _screen_tests()
 
     print()
     print(LINE)

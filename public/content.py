@@ -78,3 +78,42 @@ def contact_line(settings: Dict[str, str]) -> str:
         return ""
     org = (settings.get("문의_기관") or "").strip()
     return f"문의: {org} ☎ {tel}" if org else f"문의: ☎ {tel}"
+
+
+# ── 소개 화면 꾸미기 (작업지시 11 ③) ──
+IMG_DIR = os.path.join(HERE, "img")
+_H2 = re.compile(r"^##\s+(.+?)\s*$", re.M)
+_STEP = re.compile(r"^\s*\d+\.\s*\*\*(.+?)\*\*\s*[—\-–:]\s*(.+)$", re.M)
+
+
+def sections(body: str) -> Tuple[str, Dict[str, str]]:
+    """(첫 「##」 앞 글, {제목: 글}). 소개 화면이 제목으로 자리를 찾아 그림을 붙입니다.
+
+    md 를 고쳐 제목이 바뀌면 그 칸은 그림 없이 글만 나옵니다. 깨지지 않습니다.
+    """
+    parts = _H2.split(body or "")
+    lead = parts[0].strip()
+    out: Dict[str, str] = {}
+    for i in range(1, len(parts) - 1, 2):
+        out[parts[i].strip()] = parts[i + 1].strip()
+    return lead, out
+
+
+def steps(text: str):
+    """「1. **진단** — 설명」 줄들을 [(제목, 설명)] 으로."""
+    return [(m.group(1).strip(), m.group(2).strip()) for m in _STEP.finditer(text or "")]
+
+
+def find(secs: Dict[str, str], *keys: str) -> Tuple[str, str]:
+    """제목에 낱말이 든 칸을 찾습니다. (제목, 글) 또는 ('', '')."""
+    for k in keys:
+        for title, text in secs.items():
+            if k in title:
+                return title, text
+    return "", ""
+
+
+def img(name: str) -> str:
+    """그림 경로. 없으면 빈 문자열 — 그림이 없어도 화면은 섭니다."""
+    p = os.path.join(IMG_DIR, name)
+    return p if os.path.exists(p) else ""

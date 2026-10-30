@@ -117,31 +117,3 @@ def img(name: str) -> str:
     """그림 경로. 없으면 빈 문자열 — 그림이 없어도 화면은 섭니다."""
     p = os.path.join(IMG_DIR, name)
     return p if os.path.exists(p) else ""
-
-
-# ── 머리의 로고·표어 (작업지시 12) ──
-SLOGAN_DEFAULT = "생명을 살리는 도량"
-
-
-def _picture(settings: Dict[str, str], key: str) -> str:
-    """설정 칸의 그림 파일. `public/img/` 또는 `public/` 에서 찾고, 없으면 빈 문자열."""
-    name = os.path.basename((settings.get(key) or "").strip())
-    if not name:
-        return ""
-    for folder in (IMG_DIR, HERE):
-        p = os.path.join(folder, name)
-        if os.path.exists(p):
-            return p
-    return ""
-
-
-def slogan(settings: Dict[str, str]) -> str:
-    return (settings.get("표어") or "").strip() or SLOGAN_DEFAULT
-
-
-def slogan_img(settings: Dict[str, str]) -> str:
-    return _picture(settings, "표어_그림")
-
-
-def logo(settings: Dict[str, str]) -> str:
-    return _picture(settings, "로고_그림")

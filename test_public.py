@@ -164,7 +164,7 @@ def main() -> int:
     ok("보내는 모양 {token, kind, data}",
        sheet.post("https://x", "t", "diag", d, http=fp) is True
        and fp.calls[-1][1] == {"token": "t", "kind": "diag", "data": d})
-    ok("시간 제한 5초", fp.calls[-1][2] == 5)
+    ok("자가진단 기록 시간 제한 10초", fp.calls[-1][2] == 10)
     ok("느려서 터져도 예외 없이 False",
        sheet.post("https://x", "t", "diag", d, http=FakePost(boom=True)) is False)
     ok("서버가 ok:false 면 False",
@@ -193,6 +193,53 @@ def main() -> int:
     ok("요청 내용 1,000자 넘으면 막음",
        sheet.check_request(good_form(**{"요청 내용": "가" * 1001})) != [])
     ok("담당자 이름이 비면 막음", sheet.check_request(good_form(**{"담당자 이름": " "})) != [])
+
+    print("\n[5-1] 요청 실패 이유 (작업지시 11 ①)")
+    import requests
+
+    class Boom:
+        def __init__(self, exc):
+            self.exc, self.calls = exc, []
+
+        def __call__(self, url, json=None, timeout=None):
+            self.calls.append(timeout)
+            raise self.exc
+
+    b = Boom(requests.Timeout("느림"))
+    st_, code = sheet.send_request_detail(good_form(), "", "https://x", "t", b)
+    ok("Timeout -> failed · 코드 timeout", (st_, code) == ("failed", "timeout"))
+    ok("요청 시간 제한 20초", b.calls == [20])
+    ok("ConnectionError -> connection",
+       sheet.post_detail("https://x", "t", "diag", {},
+                         http=Boom(requests.ConnectionError()))[1] == "connection")
+    # requests 가 302 를 따라간 뒤 받은 JSON 은 성공으로 읽어야 합니다
+    ok("302 를 따라간 뒤 JSON ok -> sent",
+       sheet.send_request_detail(good_form(), "", "https://x", "t",
+                                 FakePost({"ok": True}))[0] == "sent")
+    ok("302 가 그대로 남으면 http_302",
+       sheet.post_detail("https://x", "t", "diag", {},
+                         http=lambda *a, **k: FakeResp({}, 302))[1] == "http_302")
+    st_, code = sheet.send_request_detail(good_form(), "", "https://x", "t",
+                                          FakePost({"ok": False, "err": "token"}))
+    ok("err=token -> 코드 token", (st_, code) == ("failed", "token"))
+    ok("오류 코드에 이름·연락처가 안 섞임", "홍길동" not in code and "010" not in code)
+
+    class Html(FakeResp):
+        def json(self):
+            raise ValueError("html")
+    ok("JSON 아님 -> not_json",
+       sheet.post_detail("https://x", "t", "diag", {},
+                         http=lambda *a, **k: Html(None))[1] == "not_json")
+    fp = FakePost({"ok": False, "err": "kind"})
+    pg = sheet.ping("https://x", "t", fp)
+    ok("ping 미설치(err=kind) -> 연결됨(ping 미설치)",
+       pg["verdict"] == "연결됨(ping 미설치)")
+    ok("ping 은 kind=ping · 빈 data",
+       fp.calls[-1][1]["kind"] == "ping" and fp.calls[-1][1]["data"] == {})
+    ok("ping 성공 -> 연결됨", sheet.ping("https://x", "t", FakePost())["verdict"] == "연결됨")
+    ok("ping 토큰 틀림 -> 코드 token",
+       sheet.ping("https://x", "t", FakePost({"ok": False, "err": "token"}))["code"] == "token")
+    ok("주소가 비면 ping 은 보내지 않음", sheet.ping("", "t")["code"] == "off")
 
     print("\n[6] 소개글 설정 칸")
     body, st_ = content.parse(io.open(content.INTRO, encoding="utf-8").read())

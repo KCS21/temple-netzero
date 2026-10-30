@@ -19,6 +19,7 @@
 import datetime as dt
 import io
 import os
+import threading
 
 import streamlit as st
 
@@ -103,6 +104,7 @@ st.markdown(f"""
   .jisu-num .l {{ color: {GREEN}; font-size: 16px; }}
   .jisu-num .v {{ color: {DARK}; font-size: 30px; font-weight: 800; }}
   .jisu-kind {{ font-size: 24px; font-weight: 800; color: {DARK}; }}
+  .jisu-code {{ color: #888; font-size: 14px; margin-top: -0.4rem; }}
   .jisu-small {{ color: #555; font-size: 16px; }}
   .jisu-foot {{ margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid #ddd;
       color: #555; font-size: 16px; }}
@@ -419,7 +421,10 @@ def _send_diag_once(r):
     if st.session_state.diag_sent == sig:
         return
     st.session_state.diag_sent = sig
-    sheet.post(SHEET_URL, SHEET_TOKEN, sheet.KIND_DIAG, data)   # 실패해도 화면은 그대로
+    # 뒤에서 보냅니다. Apps Script 가 늦게 깨면 10초까지 걸려 결과가 그만큼 늦게
+    # 뜹니다. 실패해도 사찰 화면은 그대로입니다.
+    threading.Thread(target=sheet.post, daemon=True,
+                     args=(SHEET_URL, SHEET_TOKEN, sheet.KIND_DIAG, data)).start()
 
 
 def page_result():
@@ -533,7 +538,8 @@ def page_request():
         if errs:
             st.warning(NL.join(f"- {e}" for e in errs))
             return
-        status = sheet.send_request(form, hp, SHEET_URL, SHEET_TOKEN)
+        with st.spinner("보내는 중입니다. 20초까지 걸릴 수 있습니다."):
+            status, code = sheet.send_request_detail(form, hp, SHEET_URL, SHEET_TOKEN)
         # 'off' (보낼 곳이 설정 안 됨)도 실패로 알립니다. 접수됐다고 하면 요청이 사라집니다.
         if status in ("sent", "blocked"):
             # 자동 입력은 성공처럼 보여 줍니다. 막혔다는 것을 알려 줄 까닭이 없습니다.
@@ -543,10 +549,35 @@ def page_request():
         # 실패하면 입력한 내용은 지우지 않습니다(위젯이 그대로 들고 있습니다).
         st.session_state.req_msg = None
         st.error(sheet.FAIL_TEXT)
+        # 원인을 가릴 짧은 코드만. 이름·연락처는 어디에도 찍지 않습니다.
+        st.markdown(f'<p class="jisu-code">(오류 코드: {code or status})</p>',
+                    unsafe_allow_html=True)
+
+
+def _check_block():
+    """관리자 점검 — 주소 뒤에 `?check=1` 을 붙여 열 때만 보입니다(작업지시 11 ①)."""
+    try:
+        on = str(st.query_params.get("check", "")).strip() == "1"
+    except Exception:
+        on = False
+    if not on:
+        return
+    st.markdown("---")
+    st.markdown("#### 시트 연결 점검")
+    st.markdown('<p class="jisu-small">개인정보 없이 점검 신호(ping)만 보냅니다.</p>',
+                unsafe_allow_html=True)
+    if st.button("시트 연결 점검", key="ping_go"):
+        with st.spinner("점검 중입니다. 20초까지 걸릴 수 있습니다."):
+            st.session_state.ping = sheet.ping(SHEET_URL, SHEET_TOKEN)
+    res = st.session_state.get("ping")
+    if res:
+        (st.success if res["code"] in ("ok", "kind") else st.warning)(
+            f"{res['verdict']} · 코드 {res['code']} · {res['seconds']}초")
 
 
 {"소개": page_intro, "자가진단": page_check, "결과": page_result,
  "컨설팅 요청": page_request}[st.session_state.nav]()
+_check_block()
 
 # ── 바닥 ──
 foot = [content.SITE_TITLE]

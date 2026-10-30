@@ -1,3 +1,4 @@
 requests>=2.31
 streamlit>=1.30
 openpyxl>=3.1
+fpdf2>=2.7

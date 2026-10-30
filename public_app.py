@@ -36,116 +36,181 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 KST = dt.timezone(dt.timedelta(hours=9))
 NL = chr(10)
 
-PAGES = ("소개", "자가진단", "결과", "컨설팅 요청")
 QUERY_LIMIT = 5          # 한 세션의 자료 조회 횟수 (공공데이터포털 키를 컨설턴트 앱과 함께 씀)
 PER_PAGE = 5
 BUSY_TEXT = "자료 서버가 바쁩니다. 잠시 뒤 다시 시도해 주세요."
 LIMIT_TEXT = "조회를 여러 번 하셨습니다. 잠시 뒤 다시 시도해 주세요."
 
-DARK, GREEN, PALE = "#1E5631", "#2F6B3F", "#E4F0E6"
-MIST, GOLD = "#F4F9F5", "#F2C14E"     # 아주 옅은 바탕 · 숫자 강조에만 조금
+# 작업지시 12 — 차분한 미색 바탕, 얇은 선, 각진 모서리. 짙은 녹색 하나가 주인공.
+BG, CARD, LINE = "#F7F4EE", "#FCFAF6", "#DDD5C6"
+INK, SUB = "#1B1B1B", "#6B6B6B"
+DARK, GREEN, GOLD = "#1E4D2B", "#2F6B3F", "#B8893B"
+FOOT = "#EFEAE0"
 
-st.set_page_config(page_title=content.SITE_TITLE, layout="centered",
+st.set_page_config(page_title=content.SITE_TITLE, layout="wide",
                    initial_sidebar_state="collapsed")
 
 # 색은 여기서만 입힙니다. `.streamlit/config.toml` 은 컨설턴트 앱과 함께 쓰므로
 # 건드리지 않습니다(작업지시 10 0장 5번).
 st.markdown(f"""
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Nanum+Brush+Script&display=swap');
   html, body, .stApp, [class*="css"], .stMarkdown, p, li, label, input, textarea, button {{
-      font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }}
-  .stApp {{ background: #ffffff; color: #222; }}
-  .stMarkdown p, .stMarkdown li {{ font-size: 18px; line-height: 1.75; }}
-  h1, h2, h3, h4 {{ color: {DARK} !important; }}
-  .stMarkdown h2 {{ font-size: 24px; margin-top: 1.4rem; padding-bottom: 0.3rem;
-      border-bottom: 2px solid {PALE}; }}
-  [data-testid="stHeader"] {{ background: transparent; }}
-  .block-container {{ padding-top: 1.2rem; max-width: 980px; }}
+      font-family: "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }}
+  .stApp {{ background: {BG}; color: {INK}; }}
+  .stMarkdown p, .stMarkdown li {{ font-size: 17.5px; line-height: 1.7; color: {INK}; }}
+  h1, h2, h3, h4 {{ color: {INK} !important; letter-spacing: -0.02em; }}
+  .stMarkdown h4 {{ font-size: 20px; font-weight: 700; margin-top: 0.6rem; }}
 
-  .jisu-head {{ background: {DARK}; color: #fff; border-radius: 12px;
-      padding: 18px 20px 14px; margin-bottom: 10px; }}
-  .jisu-head .t {{ font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }}
-  .jisu-head .s {{ font-size: 16px; opacity: 0.9; margin-top: 2px; }}
+  /* Streamlit 틀 감추기 */
+  header[data-testid="stHeader"], #MainMenu, footer, [data-testid="stToolbar"],
+  [data-testid="stDecoration"], .stDeployButton, [data-testid="stAppDeployButton"] {{
+      display: none !important; }}
+  .block-container {{ max-width: 1120px; padding: 0 24px 0 !important; margin: 0 auto; }}
+  @media (max-width: 640px) {{ .block-container {{ padding: 0 16px !important; }} }}
 
-  /* 쪽 이동 — 탭 모양. 휴대폰에서도 한 줄에 넷이 들어가게 */
-  .st-key-nav {{ border-bottom: 3px solid {DARK}; margin-bottom: 14px; }}
-  .st-key-nav [data-testid="stHorizontalBlock"] {{ flex-wrap: nowrap !important;
-      gap: 4px !important; }}
-  .st-key-nav [data-testid="stColumn"], .st-key-nav [data-testid="column"] {{
-      min-width: 0 !important; flex: 1 1 0 !important; width: auto !important; }}
-  .st-key-nav button {{ width: 100%; border-radius: 10px 10px 0 0 !important;
-      border: none !important; padding: 0.55rem 0.2rem !important;
-      background: {PALE} !important; color: {DARK} !important; }}
-  .st-key-nav button[kind^="primary"] {{ background: {DARK} !important;
-      color: #fff !important; }}
-  .st-key-nav .stButton button p {{ font-size: 17px !important; white-space: nowrap; }}
-  .st-key-nav [data-testid="stColumn"]:last-child {{ flex-grow: 1.4 !important; }}
-  @media (max-width: 480px) {{
-      .st-key-nav .stButton button p {{ font-size: 15px !important;
-          letter-spacing: -0.5px; }} }}
+  /* ── 머리 ── */
+  .st-key-topbar {{ border-bottom: 1px solid {LINE}; padding: 18px 0 12px;
+      margin-bottom: 8px; }}
+  .jisu-logo {{ font-size: 18px; font-weight: 500; color: {INK}; letter-spacing: -0.02em;
+      white-space: nowrap; }}
+  .jisu-logo b {{ color: {DARK}; font-weight: 900; }}
+  .jisu-slogan {{ font-family: "Nanum Brush Script", cursive; font-size: 30px;
+      color: {DARK}; text-align: center; line-height: 1; }}
+  .st-key-menu {{ flex-direction: row !important; flex-wrap: wrap; align-items: center;
+      justify-content: flex-end; gap: 4px 20px !important; }}
+  .st-key-menu > div {{ width: auto !important; }}
+  .st-key-menu a {{ padding: 4px 0 !important; border-radius: 0 !important;
+      background: transparent !important; }}
+  .st-key-menu a p {{ font-size: 15px !important; color: {SUB} !important; }}
+  .st-key-menu [class*="st-key-m_"][class*="_on"] a {{ border-bottom: 2px solid {GREEN}; }}
+  .st-key-menu [class*="st-key-m_"][class*="_on"] a p {{ color: {GREEN} !important;
+      font-weight: 700 !important; }}
+  .st-key-m_cta a {{ border: 1px solid {DARK} !important; border-radius: 2px !important;
+      padding: 4px 12px !important; }}
+  .st-key-m_cta a p {{ color: {DARK} !important; font-weight: 700 !important; }}
+  @media (max-width: 640px) {{
+      .jisu-slogan {{ display: none; }}
+      .st-key-menu {{ justify-content: flex-start; gap: 4px 14px !important; }}
+  }}
 
+  /* ── 단추 · 입력 칸 ── */
   .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {{
-      font-size: 19px; font-weight: 700; padding: 0.65rem 1.4rem;
-      border-radius: 10px; border: 2px solid {GREEN}; color: {DARK}; }}
+      border-radius: 2px !important; border: 1px solid {DARK} !important;
+      background: {CARD} !important; color: {DARK} !important;
+      padding: 0.6rem 1.2rem; box-shadow: none !important; }}
   .stButton button p, .stDownloadButton button p, .stFormSubmitButton button p {{
-      font-size: 19px !important; font-weight: 700; }}
-  button[kind^="primary"] {{ background: {GREEN} !important; color: #fff !important;
-      border-color: {GREEN} !important; }}
-  button[kind^="primary"]:hover {{ background: {DARK} !important; }}
+      font-size: 15px !important; font-weight: 700 !important; }}
+  button[kind^="primary"] {{ background: {DARK} !important; color: #fff !important;
+      border-color: {DARK} !important; }}
+  button[kind^="primary"] p {{ color: #fff !important; }}
+  button[kind^="primary"]:hover {{ background: {GREEN} !important; }}
   button[kind^="secondary"]:hover, .stDownloadButton > button:hover {{
-      border-color: {DARK} !important; color: {DARK} !important; background: {PALE}; }}
-  /* 고른 동그라미·네모도 녹색으로 (테마 파일은 컨설턴트 앱과 함께 써서 못 바꿈) */
-  [data-testid="stRadioOption"][data-selected="true"] > div > div > div:first-child:not([data-testid]) {{
-      background-color: {GREEN} !important; border-color: {GREEN} !important; }}
-  div[role="radiogroup"] label:has(input:checked) > div:first-child {{
-      background-color: {GREEN} !important; border-color: {GREEN} !important; }}
-  [data-testid="stCheckbox"] label[data-selected="true"] > div:has(> svg) {{
-      background-color: {GREEN} !important; border-color: {GREEN} !important; }}
+      background: {FOOT} !important; }}
+  .stTextInput div[data-baseweb="input"], .stNumberInput div[data-baseweb="input"],
+  .stTextArea div[data-baseweb="textarea"] {{ background: #fff !important;
+      border: 1px solid {LINE} !important; border-radius: 2px !important; }}
+  .stTextInput input, .stNumberInput input, .stTextArea textarea,
+  [data-baseweb="base-input"] {{ background: #fff !important; font-size: 17px; }}
   .stTextInput div[data-baseweb="input"]:focus-within,
   .stNumberInput div[data-baseweb="input"]:focus-within,
   .stTextArea div[data-baseweb="textarea"]:focus-within {{ border-color: {GREEN} !important; }}
-  .stTextInput input, .stNumberInput input, .stTextArea textarea {{ font-size: 19px; }}
-  label p, .stCheckbox p, div[role="radiogroup"] label p {{ font-size: 18px !important; }}
+  label p, .stCheckbox p, div[role="radiogroup"] label p {{ font-size: 17px !important; }}
+  /* 라디오·체크 상자에 빨간색이 남지 않게 (테마 파일은 컨설턴트 앱과 함께 씀) */
+  [data-testid="stRadioOption"][data-selected="true"] > div > div > div:first-child:not([data-testid]),
+  div[role="radiogroup"] label:has(input:checked) > div:first-child {{
+      background-color: {GREEN} !important; border-color: {GREEN} !important; }}
+  [data-testid="stCheckbox"] label[data-selected="true"] > div:has(> svg),
+  [data-testid="stCheckbox"] label:has(input:checked) > span:first-of-type {{
+      background-color: {GREEN} !important; border-color: {GREEN} !important; }}
+  [data-testid="stExpander"] details {{ border: 1px solid {LINE} !important;
+      border-radius: 2px !important; background: {CARD}; }}
 
-  .jisu-box {{ background: {PALE}; border-radius: 12px; padding: 14px 16px;
-      margin: 6px 0 12px; }}
-  .jisu-num {{ background: {PALE}; border-radius: 12px; padding: 14px 10px;
-      text-align: center; margin-bottom: 8px; }}
-  .jisu-num .l {{ color: {GREEN}; font-size: 16px; }}
-  .jisu-num .v {{ color: {DARK}; font-size: 30px; font-weight: 800; }}
-  .jisu-kind {{ font-size: 24px; font-weight: 800; color: {DARK}; }}
+  /* ── 칸 머리 ── */
+  .jisu-kicker {{ color: {GOLD}; font-size: 13px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; margin: 80px 0 6px; }}
+  .jisu-kicker.first {{ margin-top: 48px; }}
+  .jisu-h {{ font-size: 30px; font-weight: 900; letter-spacing: -0.02em;
+      color: {INK}; line-height: 1.35; margin: 0 0 18px; }}
+  .jisu-small {{ color: {SUB}; font-size: 15.5px; line-height: 1.7; }}
   .jisu-code {{ color: #888; font-size: 14px; margin-top: -0.4rem; }}
-  .jisu-small {{ color: #555; font-size: 16px; }}
-  .jisu-foot {{ margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid #ddd;
-      color: #555; font-size: 16px; }}
 
-  /* ── 소개 화면 ── */
-  .st-key-hero {{ background: {DARK}; border-radius: 16px; padding: 28px 24px 22px;
-      margin-bottom: 18px; }}
-  .st-key-hero .stMarkdown p, .st-key-hero h1 {{ color: #fff !important; }}
-  .jisu-hero-t {{ font-size: 30px; font-weight: 800; line-height: 1.4;
-      letter-spacing: -0.5px; color: #fff; margin: 4px 0 10px; }}
-  .jisu-hero-s {{ font-size: 18px; color: #DDEBDF; line-height: 1.7; }}
-  .st-key-hero button[kind^="secondary"] {{ background: #fff !important;
-      color: {DARK} !important; border-color: #fff !important; }}
-  .st-key-hero button[kind^="primary"] {{ background: {GOLD} !important;
-      color: #1b1b1b !important; border-color: {GOLD} !important; }}
-  .st-key-hero img {{ border-radius: 12px; }}
-  .jisu-cards {{ display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0 18px; }}
-  .jisu-card {{ flex: 1 1 200px; background: #fff; border: 1.5px solid {PALE};
-      border-radius: 14px; padding: 16px 16px 14px;
-      box-shadow: 0 1px 4px rgba(30, 86, 49, 0.07); }}
-  .jisu-card .n {{ font-size: 34px; font-weight: 800; color: {GREEN}; line-height: 1; }}
-  .jisu-card .t {{ font-size: 20px; font-weight: 800; color: {DARK}; margin: 6px 0 4px; }}
-  .jisu-card .d {{ font-size: 17px; color: #333; line-height: 1.65; }}
-  .jisu-stat {{ flex: 1 1 180px; background: {MIST}; border: 1.5px solid {PALE};
-      border-radius: 14px; padding: 16px; text-align: center; }}
-  .jisu-stat .v {{ font-size: 28px; font-weight: 800; color: {DARK}; }}
-  .jisu-stat .v b {{ border-bottom: 4px solid {GOLD}; }}
-  .jisu-stat .l {{ font-size: 16px; color: {GREEN}; margin-top: 2px; }}
-  .st-key-band {{ background: {MIST}; border-radius: 16px; padding: 18px 18px 6px;
-      margin: 10px 0 14px; }}
-  .st-key-band img, .st-key-row1 img, .st-key-row2 img {{ border-radius: 12px; }}
+  /* ── 첫 화면 ── */
+  .jisu-hero-k {{ text-align: center; margin-top: 56px; }}
+  .jisu-hero-t {{ text-align: center; font-size: 40px; font-weight: 900;
+      letter-spacing: -0.03em; line-height: 1.35; color: {INK};
+      max-width: 860px; margin: 0 auto 40px; }}
+  @media (max-width: 640px) {{ .jisu-hero-t {{ font-size: 28px; }}
+      .jisu-h {{ font-size: 24px; }} }}
+  .st-key-card_l, .st-key-card_r {{ border: 1px solid {LINE}; border-radius: 2px;
+      padding: 28px 28px 24px; min-height: 300px; justify-content: space-between; }}
+  .st-key-card_l {{ background: {CARD}; }}
+  .st-key-card_r {{ background: {DARK}; border-color: {DARK};
+      box-shadow: 0 2px 10px rgba(30, 77, 43, 0.12); }}
+  .st-key-card_r .stMarkdown p, .st-key-card_r .jisu-ct, .st-key-card_r .jisu-cl {{
+      color: #fff !important; }}
+  .st-key-card_r .jisu-cs, .st-key-card_r .jisu-ctag {{ color: #C9D8CC !important; }}
+  .st-key-card_r button {{ background: {CARD} !important; color: {DARK} !important;
+      border-color: {CARD} !important; }}
+  .st-key-card_r button p {{ color: {DARK} !important; }}
+  .jisu-ctop {{ display: flex; justify-content: space-between; align-items: flex-start; }}
+  .jisu-icon {{ width: 44px; height: 44px; border: 1px solid {LINE}; display: flex;
+      align-items: center; justify-content: center; background: #fff; }}
+  .st-key-card_r .jisu-icon {{ background: transparent; border-color: #5E8467; }}
+  .jisu-ctag {{ font-size: 13px; color: {SUB}; letter-spacing: 0.04em; }}
+  .jisu-ct {{ font-size: 26px; font-weight: 900; color: {INK}; margin: 26px 0 8px;
+      letter-spacing: -0.02em; }}
+  .jisu-cl {{ font-size: 17px; color: {INK}; line-height: 1.6; }}
+  .jisu-cs {{ font-size: 14px; color: {SUB}; margin: 14px 0 18px; }}
+  .st-key-hero_img {{ max-width: 760px; margin: 24px auto 0; }}
+  .st-key-hero_img img {{ border-radius: 0; }}
+
+  .jisu-cards {{ display: flex; flex-wrap: wrap; gap: 16px; margin: 8px 0 18px; }}
+  .jisu-card {{ flex: 1 1 220px; background: {CARD}; border: 1px solid {LINE};
+      border-radius: 2px; padding: 22px 20px 18px; }}
+  .jisu-card .n {{ font-size: 36px; font-weight: 900; color: {GOLD}; line-height: 1; }}
+  .jisu-card .t {{ font-size: 20px; font-weight: 900; color: {DARK}; margin: 10px 0 6px; }}
+  .jisu-card .d {{ font-size: 16px; color: #333; line-height: 1.65; }}
+  .jisu-stat {{ flex: 1 1 200px; background: {CARD}; border: 1px solid {LINE};
+      border-radius: 2px; padding: 22px 16px; text-align: center; }}
+  .jisu-stat .v {{ font-size: 32px; font-weight: 900; color: {DARK}; }}
+  .jisu-stat .v b {{ color: {GOLD}; }}
+  .jisu-stat .l {{ font-size: 15px; color: {SUB}; margin-top: 4px; }}
+
+  /* ── 안쪽 쪽 ── */
+  .jisu-pk {{ color: {GREEN}; font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
+      margin-top: 40px; }}
+  .jisu-pt {{ font-size: 34px; font-weight: 900; letter-spacing: -0.02em; color: {INK};
+      line-height: 1.35; margin: 6px 0 10px; }}
+  @media (max-width: 640px) {{ .jisu-pt {{ font-size: 26px; }} }}
+  .jisu-pd {{ color: {SUB}; font-size: 16px; line-height: 1.7; margin-bottom: 18px; }}
+  [class*="st-key-box"] {{ border: 1px solid {DARK}; background: {CARD};
+      border-radius: 2px; padding: 24px 24px 20px; margin-bottom: 14px; }}
+  @media (max-width: 640px) {{ [class*="st-key-box"] {{ padding: 16px 14px; }} }}
+  .jisu-num {{ background: #fff; border: 1px solid {LINE}; border-radius: 2px;
+      padding: 20px 12px; text-align: center; margin-bottom: 8px; }}
+  .jisu-num .l {{ color: {SUB}; font-size: 15px; }}
+  .jisu-num .v {{ color: {DARK}; font-size: 34px; font-weight: 900; }}
+  .jisu-band {{ background: {DARK}; color: #fff; border-radius: 2px;
+      padding: 18px 22px; margin: 6px 0 12px; }}
+  .jisu-band .k {{ font-size: 13px; color: #C9D8CC; letter-spacing: 0.08em; }}
+  .jisu-band .v {{ font-size: 26px; font-weight: 900; margin-top: 2px; }}
+  .jisu-band .s {{ font-size: 15px; color: #DCE6DE; }}
+  .jisu-h3 {{ font-size: 22px; font-weight: 900; color: {INK}; margin: 34px 0 8px; }}
+  ol.jisu-ol {{ padding-left: 1.4rem; }}
+  ol.jisu-ol li {{ font-size: 17px; line-height: 1.7; margin-bottom: 8px; }}
+  ol.jisu-ol li::marker {{ color: {DARK}; font-weight: 900; }}
+
+  /* ── 바닥 ── */
+  .st-key-footer {{ background: {FOOT}; margin-top: 90px; padding: 34px 28px 22px;
+      border-top: 1px solid {LINE}; }}
+  .st-key-footer a {{ padding: 2px 0 !important; background: transparent !important; }}
+  .st-key-footer a p {{ font-size: 15px !important; color: {INK} !important; }}
+  .jisu-fh {{ font-size: 13px; font-weight: 700; color: {GOLD}; letter-spacing: 0.12em;
+      margin-bottom: 8px; }}
+  .jisu-ft {{ font-size: 15px; color: {INK}; line-height: 1.8; }}
+  .jisu-fb {{ border-top: 1px solid {LINE}; margin-top: 18px; padding-top: 12px;
+      font-size: 13px; color: {SUB}; }}
 
   /* 자동 입력 막기용 칸. 사람에게는 보이지 않습니다 */
   .st-key-hp {{ position: absolute !important; left: -10000px !important;
@@ -202,7 +267,7 @@ SHEET_URL, SHEET_TOKEN = _secret("APPS_SCRIPT_URL"), _secret("APPS_SCRIPT_TOKEN"
 BODY, SETTINGS = content.load()
 CONTACT = content.contact_line(SETTINGS)
 
-for k, v in [("nav", PAGES[0]), ("rows", []), ("total", 0), ("kw", ""),
+for k, v in [("rows", []), ("total", 0), ("kw", ""),
              ("search_err", ""), ("searched", False), ("picked", None),
              ("result", None), ("queries", 0),
              ("diag_sent", None), ("pdf", None), ("pdf_sig", None),
@@ -211,34 +276,83 @@ for k, v in [("nav", PAGES[0]), ("rows", []), ("total", 0), ("kw", ""),
              ("places", []), ("places_err", "")]:
     st.session_state.setdefault(k, v)
 
+# 쪽을 옮기면 Streamlit 이 **안 보이는 쪽의 입력 칸 값을 버립니다.** 요청서를 쓰다
+# 결과를 보러 갔다 오면 다 지워져 있었습니다. 위젯이 그려지기 전에 같은 값을 다시
+# 넣어 두면 남습니다. 숨은 칸(req_hp)은 일부러 붙잡지 않습니다.
+_KEEP = ("req_name", "req_addr", "req_person", "req_contact", "req_text", "req_agree",
+         "mode", "bill_name", "bill_addr", "bill_elec", "bill_gas", "kero", "lpg20",
+         "lpg50", "dj_dong", "dj_bun", "dj_ji")
+for _k in list(st.session_state.keys()):
+    if _k in _KEEP or _k.startswith("heat_") or (_k[:1] == "m" and _k[1:].isdigit()):
+        st.session_state[_k] = st.session_state[_k]
 
-def go(page: str, **extra):
-    st.session_state.nav = page
+# 쪽 — 맨 아래에서 `st.navigation` 에 넘깁니다. 주소: / · /check · /result · /request
+PAGE = {}
+
+
+def _go(key: str, **extra):
+    """다른 쪽으로. **단추를 누른 그 자리에서** 부릅니다(콜백 안에서는 못 옮김).
+
+    결과·고른 주소는 위젯이 아닌 세션 값이라 쪽을 옮겨도 남습니다.
+    """
     st.session_state.update(extra)
+    st.switch_page(PAGE[key])
 
 
-# ── 머리 · 쪽 이동 ──
-st.markdown(f'<div class="jisu-head"><div class="t">{content.SITE_TITLE}</div>'
-            '<div class="s">사찰 탄소중립 자가진단 · 무료 컨설팅</div></div>',
-            unsafe_allow_html=True)
-if st.session_state.get("goto"):
-    st.session_state.nav = st.session_state.pop("goto")
-with st.container(key="nav"):
-    # 라디오는 빨간 점이 남아 홈페이지처럼 보이지 않았습니다(작업지시 11 ③).
-    # 고른 쪽만 primary 로 그려 짙은 녹색 탭이 됩니다.
-    for col, name in zip(st.columns(len(PAGES)), PAGES):
-        col.button(name, key=f"tab_{name}", width="stretch",
-                   type="primary" if st.session_state.nav == name else "secondary",
-                   on_click=go, args=(name,))
+def _kicker(text: str, first: bool = False):
+    return f'<div class="jisu-kicker{" first" if first else ""}">{text}</div>'
+
+
+def _sec(kicker: str, title: str, first: bool = False):
+    """칸 머리 — 작은 금색 머리글 + 큰 제목."""
+    st.markdown(_kicker(kicker, first) + f'<div class="jisu-h">{title}</div>',
+                unsafe_allow_html=True)
+
+
+def _page_head(kicker: str, title: str, desc: str = ""):
+    """안쪽 쪽 머리 — 녹색 작은 머리글 · 큰 제목 · 회색 설명."""
+    st.markdown(f'<div class="jisu-pk">{kicker}</div><div class="jisu-pt">{title}</div>'
+                + (f'<div class="jisu-pd">{desc}</div>' if desc else ""),
+                unsafe_allow_html=True)
 
 
 # ═══════════ ① 소개 ═══════════
 def _two_buttons(key: str):
     c1, c2 = st.columns(2)
-    c1.button("우리 절 자가진단", key=f"{key}_check", type="primary",
-              width="stretch", on_click=go, args=("자가진단",))
-    c2.button("무료 컨설팅 요청", key=f"{key}_req", width="stretch",
-              on_click=go, args=("컨설팅 요청",))
+    if c1.button("자가진단 시작하기 →", key=f"{key}_check", type="primary",
+                 width="stretch"):
+        _go("check")
+    if c2.button("컨설팅 요청하기 →", key=f"{key}_req", width="stretch"):
+        _go("request")
+
+
+# 카드 왼쪽 위 작은 네모 안의 선 그림 (직접 그린 단순한 선. 아이콘 글꼴을 쓰지 않음)
+ICON_GAUGE = ('<svg width="24" height="24" viewBox="0 0 24 24" fill="none" '
+              'stroke="{c}" stroke-width="1.6" stroke-linecap="round">'
+              '<path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4-5"/>'
+              '<path d="M4 19h16"/></svg>')
+ICON_TALK = ('<svg width="24" height="24" viewBox="0 0 24 24" fill="none" '
+             'stroke="{c}" stroke-width="1.6" stroke-linejoin="round">'
+             '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>')
+
+CARD_L = ("공개 자료 · 5분", "우리 절 자가진단",
+          "우리 절의 에너지와 온실가스를 먼저 살펴보세요",
+          "전기 · 도시가스 · 난방 연료 · 태양광")
+CARD_R = ("사찰 대상 · 무료", "무료 컨설팅 요청",
+          "현장 진단과 탄소중립 로드맵을 함께 세웁니다",
+          "진단 · 감축 · 재생에너지 · 지원사업")
+
+
+def _big_card(key: str, icon: str, color: str, data, label: str, target: str,
+              primary: bool):
+    tag, title, line, small = data
+    with st.container(key=key):
+        st.markdown(f'<div class="jisu-ctop"><div class="jisu-icon">'
+                    f'{icon.format(c=color)}</div><div class="jisu-ctag">{tag}</div></div>'
+                    f'<div class="jisu-ct">{title}</div><div class="jisu-cl">{line}</div>'
+                    f'<div class="jisu-cs">{small}</div>', unsafe_allow_html=True)
+        if st.button(label, key=f"{key}_go", type="primary" if primary else "secondary"):
+            _go(target)
 
 
 def _cards(items, numbered: bool = False) -> str:
@@ -250,20 +364,20 @@ def _cards(items, numbered: bool = False) -> str:
     return '<div class="jisu-cards">' + "".join(out) + "</div>"
 
 
-def _text_and_image(key: str, title: str, text: str, image: str,
+def _text_and_image(key: str, kicker: str, title: str, text: str, image: str,
                     image_left: bool = False):
     """글 + 그림 좌우. 휴대폰에서는 그림이 아래로 갑니다."""
     if not title:
         return
     with st.container(key=key):
-        st.markdown(f"## {title}")
+        _sec(kicker, title)
         if not image:
             st.markdown(text)
             return
         if image_left:
-            c_img, c_txt = st.columns([2, 3], vertical_alignment="center")
+            c_img, c_txt = st.columns([2, 3], vertical_alignment="center", gap="large")
         else:
-            c_txt, c_img = st.columns([3, 2], vertical_alignment="center")
+            c_txt, c_img = st.columns([3, 2], vertical_alignment="center", gap="large")
         c_txt.markdown(text)
         c_img.image(image, width="stretch")
 
@@ -286,21 +400,24 @@ def page_intro():
     tagline = lead.strip("* ").strip() or content.SITE_TITLE
     who_t, who = content.find(secs, "우리는")
 
-    # 1. 히어로
-    with st.container(key="hero"):
-        c_txt, c_img = st.columns([3, 2], vertical_alignment="center")
-        with c_txt:
-            st.markdown(f'<div class="jisu-hero-t">{tagline}</div>'
-                        '<div class="jisu-hero-s">불교에너지전문가들이 사찰을 찾아가 '
-                        "에너지를 진단하고 탄소중립 로드맵을 함께 세웁니다. "
-                        "사찰 컨설팅은 무료입니다.</div>", unsafe_allow_html=True)
+    # 1. 첫 화면 — 머리글 · 큰 제목 · 큰 카드 두 장
+    st.markdown('<div class="jisu-hero-k">' + _kicker("Buddhist Carbon Neutral Action", True)
+                + f'</div><div class="jisu-hero-t">{tagline}</div>', unsafe_allow_html=True)
+    c1, c2 = st.columns(2, gap="medium")
+    with c1:
+        _big_card("card_l", ICON_GAUGE, DARK, CARD_L, "자가진단 시작하기 →",
+                  "check", True)
+    with c2:
+        _big_card("card_r", ICON_TALK, "#FFFFFF", CARD_R, "컨설팅 요청하기 →",
+                  "request", False)
+    hero = content.img("temple_solar.png")
+    if hero:
+        with st.container(key="hero_img"):
             st.write("")
-            _two_buttons("hero")
-        hero = content.img("temple_solar.png")
-        if hero:
-            c_img.image(hero, width="stretch")
+            st.image(hero, width="stretch")
 
-    # 2. 숫자 띠
+    # 2. 숫자 카드
+    _sec("Practice", "먼저 해 본 곳")
     st.markdown('<div class="jisu-cards">' + "".join(
         f'<div class="jisu-stat"><div class="v"><b>{v}</b> {u}</div>'
         f'<div class="l">{l}</div></div>' for v, u, l in STATS) + "</div>",
@@ -311,45 +428,44 @@ def page_intro():
 
     # 3. 우리는 / 하는 일
     if who:
-        st.markdown(f"## {who_t}")
+        _sec("About", who_t)
         st.markdown(who)
     work_t, work = content.find(secs, "하는 일")
     if work_t:
-        st.markdown(f"## {work_t}")
+        _sec("What we do", work_t)
         st.markdown(_cards(WORK_CARDS), unsafe_allow_html=True)
         st.markdown(work)
 
     # 4·5. 오래된 가르침 · 사찰의 현실
     t, x = content.find(secs, "가르침")
-    _text_and_image("row1", t, x, content.img("cycle.png"))
+    _text_and_image("row1", "Teaching", t, x, content.img("cycle.png"))
     t, x = content.find(secs, "현실")
-    _text_and_image("row2", t, x, content.img("meter_fuel.png"), image_left=True)
+    _text_and_image("row2", "Reality", t, x, content.img("meter_fuel.png"), image_left=True)
 
     # 6. 순서가 중요합니다
     t, x = content.find(secs, "순서")
     items = content.steps(x)
     if t and items:
-        with st.container(key="band"):
-            st.markdown(f"## {t}")
-            st.markdown(_cards(items, numbered=True), unsafe_allow_html=True)
-            hp = content.img("heatpump.png")
-            if hp:
-                c1, c2 = st.columns([2, 3], vertical_alignment="center")
-                c1.image(hp, width="stretch")
-                c2.markdown("**감축**의 중심은 히트펌프입니다. 전기판넬·등유 보일러를 "
-                            "바꾸면 난방 에너지가 크게 줍니다. 그다음에 남은 전기를 "
-                            "태양광으로 채웁니다.")
+        _sec("Roadmap", t)
+        st.markdown(_cards(items, numbered=True), unsafe_allow_html=True)
+        hp = content.img("heatpump.png")
+        if hp:
+            c1, c2 = st.columns([2, 3], vertical_alignment="center", gap="large")
+            c1.image(hp, width="stretch")
+            c2.markdown("**감축**의 중심은 히트펌프입니다. 전기판넬·등유 보일러를 "
+                        "바꾸면 난방 에너지가 크게 줍니다. 그다음에 남은 전기를 "
+                        "태양광으로 채웁니다.")
     elif t:
-        st.markdown(f"## {t}")
+        _sec("Roadmap", t)
         st.markdown(x)
 
     # 7. 단장 인사말 (설정 칸이 비면 숨김)
     g = content.greeting(SETTINGS)
     if g:
         title, text, photo = g
-        st.markdown(f"## {title}")
+        _sec("Greeting", title)
         if photo:
-            c1, c2 = st.columns([1, 2])
+            c1, c2 = st.columns([1, 2], gap="large")
             c1.image(photo, width="stretch")
             c2.markdown(text)
         else:
@@ -360,8 +476,8 @@ def page_intro():
     start_t, start_x = content.find(secs, "시작")
     lotus = content.img("lotus.png")
     if start_t or with_t:
-        st.markdown(f"## {start_t or with_t}")
-        c_img, c_txt = st.columns([1, 3], vertical_alignment="center")
+        _sec("Start", start_t or with_t)
+        c_img, c_txt = st.columns([1, 3], vertical_alignment="center", gap="large")
         if lotus:
             c_img.image(lotus, width="stretch")
         with c_txt:
@@ -375,7 +491,7 @@ def page_intro():
     shown = ("우리는", "하는 일", "가르침", "현실", "순서", "먼저 해 본", "함께", "시작")
     for title, text in secs.items():
         if not any(k in title for k in shown):
-            st.markdown(f"## {title}")
+            _sec("More", title)
             st.markdown(text)
 
 
@@ -509,23 +625,35 @@ def _heat_and_fuel():
 
 
 def _show_result(r):
-    # 쪽 이동 단추가 이미 그려진 뒤라 nav 를 바로 못 바꿉니다. 다음 그리기에서 옮깁니다.
-    st.session_state.update(result=r, pdf=None, pdf_sig=None, goto="결과")
+    _go("result", result=r, pdf=None, pdf_sig=None)
+
+
+CHECK_NOTES = (
+    "전기·가스는 공개된 건물에너지 자료에서 **지번 한 곳**에 잡힌 값입니다. "
+    "사찰 전체가 아닐 수 있습니다.",
+    "등유·LPG 는 넣으신 양만 셈합니다. 화목(장작)은 배출 합계에 넣지 않습니다.",
+    "결과는 개략 진단입니다. 정확한 진단은 현장 확인이 필요합니다.",
+)
 
 
 def page_check():
-    st.markdown("## 우리 절 자가진단")
+    _page_head("자가진단", "우리 절의 에너지를 먼저 살펴보세요",
+               "이 진단은 공개 자료와 입력하신 값으로 계산합니다. "
+               "입력하신 숫자 외의 개인 정보는 받지 않습니다.")
     modes = {"find": "주소나 절 이름으로 찾기", "bill": "고지서 숫자로 직접 넣기"}
-    if not LOOKUP_ON:
-        st.session_state.mode = "bill"
-    else:
-        st.radio("진단 방법", list(modes), format_func=modes.get, key="mode",
-                 horizontal=True)
+    with st.container(key="box_check"):
+        if not LOOKUP_ON:
+            st.session_state.mode = "bill"
+        else:
+            st.radio("진단 방법", list(modes), format_func=modes.get, key="mode",
+                     horizontal=True)
 
-    if st.session_state.mode == "find":
-        _find_block()
-    else:
-        _bill_block()
+        if st.session_state.mode == "find":
+            _find_block()
+        else:
+            _bill_block()
+    with st.expander("유의사항"):
+        st.markdown(NL.join(f"- {t}" for t in CHECK_NOTES))
 
 
 def _kakao_key() -> str:
@@ -669,12 +797,11 @@ def _find_block():
                         name.strip() or j.bdNm or j.jibunAddr, j.jibunAddr, year,
                         sc.MODE_LOOKUP, elec, gas, heat, drums, small, big,
                         monthly=data["elec"]))
-                    st.rerun()
     if st.session_state.look_err:
         st.warning(st.session_state.look_err)
     if st.session_state.no_data:
         st.warning(st.session_state.no_data)
-        st.button("고지서 숫자로 직접 넣기", width="stretch",
+        st.button("고지서 숫자로 직접 넣기",
                   on_click=lambda: st.session_state.update(
                       mode="bill", bill_name=name.strip() or j.bdNm or "",
                       bill_addr=j.jibunAddr, no_data=""))
@@ -711,7 +838,6 @@ def _bill_block():
         _show_result(sc.diagnose(name.strip() or "우리 절", addr.strip(), None,
                                  sc.MODE_BILL, total, gas or 0, heat, drums,
                                  small, big, monthly=series))
-        st.rerun()
 
 
 # ═══════════ ③ 결과 ═══════════
@@ -731,17 +857,15 @@ def _send_diag_once(r):
 def page_result():
     r = st.session_state.result
     if r is None:
-        st.markdown("## 결과")
-        st.info("아직 진단한 결과가 없습니다. 먼저 자가진단을 해 주세요.")
-        st.button("자가진단 하러 가기", type="primary", width="stretch",
-                  on_click=go, args=("자가진단",))
+        _page_head("결과", "아직 진단한 결과가 없습니다",
+                   "먼저 자가진단을 해 주세요. 5분이면 됩니다.")
+        if st.button("자가진단 하러 가기 →", type="primary"):
+            _go("check")
         return
     _send_diag_once(r)
 
-    st.markdown(f"## {r.name}")
     where = f"{r.year}년 공개 자료" if r.mode == sc.MODE_LOOKUP else "입력하신 고지서 값"
-    st.markdown(f'<p class="jisu-small">{r.addr or "주소 미입력"} · {where}</p>',
-                unsafe_allow_html=True)
+    _page_head("자가진단 결과", r.name, f"{r.addr or '주소 미입력'} · {where}")
 
     cols = st.columns(3)
     for c, (lbl, val) in zip(cols, (("연간 배출량", f"{r.total_t:,.1f} t"),
@@ -759,24 +883,26 @@ def page_result():
                 f"{sc.em.SOLAR_HOURS}시간 발전으로 셈했습니다.</p>",
                 unsafe_allow_html=True)
 
-    st.markdown("## 우리 절 유형")
     ratio = sc.ratio_text(r.ratio)
-    st.markdown(f'<div class="jisu-box"><div class="jisu-kind">{r.kind}</div>'
-                + (f'<div class="jisu-small">{ratio}</div>' if ratio else "")
+    st.markdown('<div class="jisu-band"><div class="k">우리 절 유형</div>'
+                f'<div class="v">{r.kind}</div>'
+                + (f'<div class="s">{ratio}</div>' if ratio else "")
                 + "</div>", unsafe_allow_html=True)
 
-    st.markdown("## 먼저 해 볼 일")
-    st.markdown(NL.join(f"{i}. {t}" for i, t in enumerate(r.todo, 1)))
+    st.markdown('<div class="jisu-h3">먼저 해 볼 일</div><ol class="jisu-ol">'
+                + "".join(f"<li>{t}</li>" for t in r.todo) + "</ol>",
+                unsafe_allow_html=True)
 
     if r.monthly and any(r.monthly.values()):
-        st.markdown("## 월별 전기 사용량 (kWh)")
+        st.markdown('<div class="jisu-h3">월별 전기 사용량 (kWh)</div>',
+                    unsafe_allow_html=True)
         st.bar_chart({f"{sc._month_of(k):02d}월": v for k, v in sorted(r.monthly.items())},
                      color=GREEN, x_label="", y_label="")
 
-    st.markdown("## 지원사업")
+    st.markdown('<div class="jisu-h3">지원사업</div>', unsafe_allow_html=True)
     st.markdown(sc.SUPPORT_TEXT)
-    st.markdown("## 이 진단의 한계")
-    st.markdown(NL.join(f"- {t}" for t in r.notes))
+    with st.expander("이 진단의 한계", expanded=True):
+        st.markdown(NL.join(f"- {t}" for t in r.notes))
 
     sig = id(r)
     if st.session_state.pdf_sig != sig:
@@ -792,46 +918,49 @@ def page_result():
                            mime="application/pdf", width="stretch")
     else:
         c1.warning("PDF 를 만들지 못했습니다. 이 화면을 그대로 인쇄해 주세요.")
-    c2.button("컨설팅 요청하기", type="primary", width="stretch",
-              on_click=go, args=("컨설팅 요청",),
-              kwargs={"req_name": r.name, "req_addr": r.addr})
+    if c2.button("컨설팅 요청하기 →", type="primary", width="stretch"):
+        _go("request", req_name=r.name, req_addr=r.addr)
 
 
 # ═══════════ ④ 컨설팅 요청 ═══════════
 def page_request():
-    st.markdown("## 컨설팅 요청")
-    st.markdown("지수광풍은 사찰을 대상으로 **무료 컨설팅**을 하고 있습니다. "
-                "아래를 적어 보내 주시면 연락드립니다.")
+    _page_head("컨설팅 요청", "무료 컨설팅을 요청해 주세요",
+               "지수광풍은 사찰을 대상으로 무료 컨설팅을 하고 있습니다. "
+               "아래를 적어 보내 주시면 연락드립니다.")
     msg = st.session_state.req_msg
     if msg == "sent":
         st.success(sheet.SENT_TEXT)
 
-    name = st.text_input("절 이름 (필수)", key="req_name")
-    addr = st.text_input("주소 (필수)", key="req_addr")
-    person = st.text_input("담당자 이름 (필수)", key="req_person")
-    contact = st.text_input("연락처 (필수) — 전화 또는 이메일", key="req_contact",
-                            placeholder="예: 010-1234-5678")
-    text = st.text_area(f"요청 내용 ({sheet.REQ_MAX_TEXT:,}자 이내)", key="req_text",
-                        max_chars=sheet.REQ_MAX_TEXT, height=140)
-    with st.container(key="hp"):
-        hp = st.text_input("홈페이지", key="req_hp", label_visibility="collapsed",
-                           autocomplete="off")
+    with st.container(key="box_req"):
+        c1, c2 = st.columns(2)
+        name = c1.text_input("절 이름 (필수)", key="req_name")
+        addr = c2.text_input("주소 (필수)", key="req_addr")
+        c3, c4 = st.columns(2)
+        person = c3.text_input("담당자 이름 (필수)", key="req_person")
+        contact = c4.text_input("연락처 (필수) — 전화 또는 이메일", key="req_contact",
+                                placeholder="예: 010-1234-5678")
+        text = st.text_area(f"요청 내용 ({sheet.REQ_MAX_TEXT:,}자 이내)", key="req_text",
+                            max_chars=sheet.REQ_MAX_TEXT, height=140)
+        with st.container(key="hp"):
+            hp = st.text_input("홈페이지", key="req_hp", label_visibility="collapsed",
+                               autocomplete="off")
 
-    r = st.session_state.result
-    summary = r.summary() if r is not None else ""
-    if summary:
-        st.markdown(f'<p class="jisu-small">자가진단 결과가 함께 갑니다: {summary}</p>',
-                    unsafe_allow_html=True)
+        r = st.session_state.result
+        summary = r.summary() if r is not None else ""
+        if summary:
+            st.markdown(f'<p class="jisu-small">자가진단 결과가 함께 갑니다: {summary}</p>',
+                        unsafe_allow_html=True)
 
-    st.markdown(f"**{sheet.CONSENT_TITLE}**" + NL + NL
-                + NL.join(f"- {t}" for t in sheet.CONSENT_LINES))
+    # 동의 문안은 테두리 상자 안에, 체크와 [보내기] 는 그 아래에 (문안 글자는 그대로)
+    with st.container(key="box_consent"):
+        st.markdown(f"**{sheet.CONSENT_TITLE}**" + NL + NL
+                    + NL.join(f"- {t}" for t in sheet.CONSENT_LINES))
     agree = st.checkbox(sheet.CONSENT_CHECK, key="req_agree")
 
     used = st.session_state.req_sent >= sheet.SEND_LIMIT
     if used:
         st.info("이 화면에서는 더 보낼 수 없습니다. 지수광풍이 곧 연락드리겠습니다.")
-    if st.button("보내기", type="primary", width="stretch",
-                 disabled=not agree or used):
+    if st.button("보내기 →", type="primary", disabled=not agree or used):
         form = {"절 이름": name, "주소": addr, "담당자 이름": person,
                 "연락처": contact, "요청 내용": text, "동의": agree,
                 "자가진단 요약": summary}
@@ -876,15 +1005,74 @@ def _check_block():
             f"{res['verdict']} · 코드 {res['code']} · {res['seconds']}초")
 
 
-{"소개": page_intro, "자가진단": page_check, "결과": page_result,
- "컨설팅 요청": page_request}[st.session_state.nav]()
-_check_block()
+# ═══════════ 머리 · 바닥 ═══════════
+MENU = (("intro", "소개"), ("check", "자가진단"), ("result", "결과"),
+        ("request", "컨설팅 요청"))
 
-# ── 바닥 ──
-foot = [content.SITE_TITLE]
-if CONTACT:
-    foot.append(CONTACT)
-st.markdown(f'<div class="jisu-foot">{"<br>".join(foot)}'
-            + (f'<br><span style="font-size:13px;color:#999">판 {VERSION}</span>'
-               if VERSION else "")
-            + "</div>", unsafe_allow_html=True)
+
+def _header(cur: str):
+    """로고 · 표어 · 메뉴 네 개 + 「무료 상담」. 휴대폰에서는 표어를 감춥니다."""
+    with st.container(key="topbar"):
+        c1, c2, c3 = st.columns([3, 3, 6], vertical_alignment="center")
+        logo = content.logo(SETTINGS)
+        if logo:
+            c1.image(logo, width=220)
+        else:
+            c1.markdown('<div class="jisu-logo">불교탄소중립실천단 <b>지수광풍</b></div>',
+                        unsafe_allow_html=True)
+        slogan_img = content.slogan_img(SETTINGS)
+        if slogan_img:
+            with c2.container(key="slogan_img"):
+                st.image(slogan_img, width=200)
+        else:
+            c2.markdown(f'<div class="jisu-slogan">{content.slogan(SETTINGS)}</div>',
+                        unsafe_allow_html=True)
+        with c3.container(key="menu"):
+            for k, label in MENU:
+                with st.container(key=f"m_{k}{'_on' if k == cur else ''}"):
+                    st.page_link(PAGE[k], label=label)
+            with st.container(key="m_cta"):
+                st.page_link(PAGE["request"], label="무료 상담")
+
+
+def _footer():
+    with st.container(key="footer"):
+        c1, c2, c3 = st.columns(3, gap="large")
+        with c1:
+            st.markdown('<div class="jisu-fh">바로가기</div>', unsafe_allow_html=True)
+            for k, label in (("intro", "소개"), ("check", "자가진단"),
+                             ("request", "컨설팅 요청")):
+                st.page_link(PAGE[k], label=label)
+        tel = (SETTINGS.get("문의_전화") or "").strip()
+        org = (SETTINGS.get("문의_기관") or "").strip() or "불교환경연대 사무실"
+        c2.markdown('<div class="jisu-fh">문의</div><div class="jisu-ft">'
+                    f'{org}' + (f'<br>☎ {tel}' if tel else "") + "</div>",
+                    unsafe_allow_html=True)
+        c3.markdown('<div class="jisu-fh">함께하는 곳</div><div class="jisu-ft">'
+                    "불교환경연대<br>비로자나자연에너지협동조합</div>",
+                    unsafe_allow_html=True)
+        st.markdown(f'<div class="jisu-fb">© {content.SITE_TITLE} · 이 진단은 개략 '
+                    "진단이며 현장 확인을 대신하지 않습니다"
+                    + (f" · 판 {VERSION}" if VERSION else "") + "</div>",
+                    unsafe_allow_html=True)
+
+
+PAGE.update(
+    intro=st.Page(page_intro, title="소개", url_path="intro", default=True),
+    check=st.Page(page_check, title="자가진단", url_path="check"),
+    result=st.Page(page_result, title="결과", url_path="result"),
+    request=st.Page(page_request, title="컨설팅 요청", url_path="request"),
+)
+_current = st.navigation(list(PAGE.values()), position="hidden")
+# 시험(AppTest)은 주소로 쪽을 고를 수 없어 이 값으로 고릅니다. 화면에서는 쓰지 않습니다.
+_cur_key = st.session_state.get("_test_page") or next(
+    (k for k, pg in PAGE.items() if pg.url_path == _current.url_path), "intro")
+_header(_cur_key)
+if st.session_state.get("_test_page"):
+    # 고른 쪽이 아닌 `st.Page` 는 .run() 을 못 부릅니다. 함수를 바로 부릅니다.
+    {"intro": page_intro, "check": page_check, "result": page_result,
+     "request": page_request}[_cur_key]()
+else:
+    _current.run()
+_check_block()
+_footer()

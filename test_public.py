@@ -113,7 +113,7 @@ def _screen_tests():
         def run(kw, kakao_key=""):
             keys.kakao = lambda *a, **k: kakao_key
             at = AppTest.from_file(app, default_timeout=60).run()
-            at.session_state["nav"] = "자가진단"
+            at.session_state["_test_page"] = "check"
             at.run()
             at.text_input[0].set_value(kw)
             at.button(key="FormSubmitter:search-찾기").click()
@@ -144,6 +144,25 @@ def _screen_tests():
         ok("지번 직접 넣기 칸이 있음 (접어 둠)",
            any("지번을 직접 넣기" in e.label for e in at.expander))
         ok("화면 오류 없음", not at.exception)
+
+        # 작업지시 12 — 네 쪽이 다 그려지고, 쪽을 옮겨도 결과가 남는지
+        keys.kakao = lambda *a, **k: ""
+        at = AppTest.from_file(app, default_timeout=60).run()
+        ok("첫 화면 오류 없음 · 카드 두 장",
+           not at.exception and {"card_l_go", "card_r_go"} <= {b.key for b in at.button})
+        r = sc.diagnose("시험사", "어딘가 1", 2025, sc.MODE_LOOKUP, 50000)
+        for page in ("check", "result", "request"):
+            at.session_state["_test_page"] = page
+            at.session_state["result"] = r
+            at.run()
+            ok(f"{page} 쪽 오류 없음", not at.exception, str(at.exception))
+        at.session_state["_test_page"] = "check"
+        at.run()
+        at.session_state["_test_page"] = "result"
+        at.run()
+        ok("자가진단 쪽에 갔다 와도 결과가 남음",
+           at.session_state["result"] is r
+           and any("시험사" in m.value for m in at.markdown))
     finally:
         keys.load, keys.kakao, juso.search, kakao.search, bldrgst.fetch_dongs = saved
 
@@ -326,6 +345,12 @@ def main() -> int:
     ok("전화가 있으면 「문의: … ☎ …」",
        content.contact_line(s2) == "문의: 불교환경연대 사무실 ☎ 02-000-0000")
     ok("주석 안의 「:」 는 설정으로 안 읽음", "설명" not in s2)
+    ok("표어 기본값", content.slogan({}) == "생명을 살리는 도량"
+       and content.slogan(st_) == "생명을 살리는 도량")
+    ok("표어를 바꾸면 그 글자", content.slogan({"표어": "맑은 도량"}) == "맑은 도량")
+    ok("로고·표어 그림이 비면 글자로", content.logo(st_) == "" and content.slogan_img(st_) == "")
+    ok("없는 그림 이름은 무시", content.logo({"로고_그림": "없는그림.png"}) == "")
+    ok("있는 그림은 경로로", content.logo({"로고_그림": "lotus.png"}).endswith("lotus.png"))
 
     print("\n[7] 결과 PDF")
     pdf = report_pdf.build(r, "문의: 불교환경연대 사무실 ☎ 02-000-0000")

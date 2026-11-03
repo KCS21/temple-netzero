@@ -136,6 +136,61 @@ CAVEAT = ("지붕 방향·그늘·경사는 반영되지 않았습니다. "
 NO_PLACE = "지역을 찾지 못해 전국 평균을 썼습니다."
 
 
+# ── 공사비·보조금 (컨설턴트 앱과 엑셀에만) ──────────────────
+#
+# **공개 앱에는 내지 않습니다.** 사찰이 직접 보는 화면에 돈 숫자가 먼저
+# 나오면 개략값이 견적처럼 읽힙니다. 아래 CAVEAT 에 적은 것들(지붕 보강·
+# 허가·연계비)이 빠진 값이라 실제와 어긋나고, 그 차이는 컨설턴트가 현장에서
+# 설명해야 할 몫입니다.
+#
+# kW당 130만 원 — 참나선원 검토안(2026.8) 132만, 해줌 2026년 100 kW급
+# 110~140만. 부가세 포함, **지붕형 자가용** 기준입니다.
+SOLAR_COST_PER_KW = 1_300_000    # 원/kW, 부가세 포함
+SUBSIDY_PER_KW = 525_000         # 원/kW, 건물지원 일반 (부가세 제외 단가)
+SUBSIDY_MAX_KW = 200             # 보조금은 이 용량까지만
+ELEC_PRICE = 150                 # 원/kWh — 전기요금 절감 셈에 쓰는 값
+
+SMALL_KW = 10                    # 이보다 작으면 단가가 더 높을 수 있습니다
+SMALL_NOTE = "소규모는 kW당 단가가 더 높을 수 있습니다."
+
+COST_CAVEAT = (
+    "개략값입니다. 지붕 보강·문화유산 구역 허가·한전 연계비·사용전검사 "
+    "수수료는 별도이며, 보조금은 그해 공고 이후 설치한 설비만 받을 수 "
+    "있습니다.")
+
+
+def cost(kw: float, place: str = NATION) -> dict:
+    """공사비·보조금·자부담과 회수연수. **개략값입니다.**"""
+    kw = float(kw or 0)
+    build = kw * SOLAR_COST_PER_KW
+    subsidy = min(kw, SUBSIDY_MAX_KW) * SUBSIDY_PER_KW
+    own = max(0.0, build - subsidy)
+    gen = kw * annual_kwh_per_kw(place)
+    save = gen * ELEC_PRICE
+    return {
+        "kw": kw,
+        "공사비": build,
+        "보조금": subsidy,
+        "자부담": own,
+        "연간발전": gen,
+        "연간절감": save,
+        "회수연수": (own / save) if save else 0.0,
+        "소규모": kw < SMALL_KW and kw > 0,
+        "보조금상한": kw > SUBSIDY_MAX_KW,
+    }
+
+
+def cut_text(total_t: float, elec_t: float) -> str:
+    """태양광으로 전기를 모두 채웠을 때 줄어드는 배출 한 줄."""
+    left = max(0.0, float(total_t or 0) - float(elec_t or 0))
+    return (f"태양광으로 전기를 모두 채우면 연간 배출이 "
+            f"**{float(total_t or 0):,.1f} t → {left:,.1f} t** 로 "
+            # **「−」(U+2212) 를 쓰지 마십시오.** 나눔고딕에 그 글리프가
+            # 없어 PDF 에서 경고가 나고 글자가 빠집니다(7장 cp949 규칙과
+            # 같은 종류). 보통 하이픈을 씁니다.
+            f"줄어듭니다 (-{float(elec_t or 0):,.1f} t).")
+
+
 def resolve(addr: str) -> tuple:
     """(표의 시도 이름, 전국 평균을 썼는가)."""
     p = place_of(addr)

@@ -246,6 +246,42 @@ def main() -> int:
        S.capacity_kw(25699, "대전") > S.capacity_kw(25699, "전라북도"),
        f"{S.capacity_kw(25699, '대전'):.1f} vs {S.capacity_kw(25699, '전라북도'):.1f}")
     ok("표에 17개 시도 + 전국 평균", len(S.HOURS) == 18)
+    # ── 공사비·보조금은 **공개 앱에 나오면 안 됩니다** (작업지시 15 ①) ──
+    # **주석은 보지 않습니다.** 그냥 grep 하면 「공사비는 넣지 않는다」는
+    # 주석까지 걸려 어디를 고쳐야 할지 알 수 없습니다(CLAUDE.md 7장).
+    # `ast` 로 **화면에 나가는 문자열과 실제 호출**만 봅니다.
+    import ast as _ast
+    import os as _os
+    WORDS = ("공사비", "보조금", "자부담")
+    CALLS = ("cost", "SOLAR_COST_PER_KW", "SUBSIDY_PER_KW", "ELEC_PRICE")
+    for _f in ("public_app.py", "public/selfcheck.py", "public/report_pdf.py"):
+        _src = io.open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                     _f), encoding="utf-8").read()
+        _tree = _ast.parse(_src)
+        _docs = set()
+        for _n in _ast.walk(_tree):
+            if isinstance(_n, (_ast.Module, _ast.ClassDef, _ast.FunctionDef)):
+                _d = _ast.get_docstring(_n, clean=False)
+                if _d:
+                    _docs.add(_d)
+        _hit = [w for n in _ast.walk(_tree)
+                if isinstance(n, _ast.Constant) and isinstance(n.value, str)
+                and n.value not in _docs
+                for w in WORDS if w in n.value]
+        _hit += [c for n in _ast.walk(_tree) if isinstance(n, _ast.Attribute)
+                 for c in CALLS if n.attr == c]
+        ok(f"{_f} 에 돈 숫자가 없다", not _hit, f"걸린 말: {sorted(set(_hit))}")
+    ok("보조금은 200 kW 까지만",
+       abs(S.cost(250)["보조금"] - 200 * S.SUBSIDY_PER_KW) < 1e-6
+       and S.cost(250)["보조금상한"])
+    ok("자부담 = 공사비 - 보조금",
+       abs(S.cost(20.5)["자부담"]
+           - (S.cost(20.5)["공사비"] - S.cost(20.5)["보조금"])) < 1e-6)
+    ok("10 kW 미만이면 소규모 표시", S.cost(9)["소규모"] and not S.cost(11)["소규모"])
+    ok("감축 한 줄 — 남는 양은 합계에서 전기만 뺀 것",
+       "12.3 t → 2.3 t" in S.cut_text(12.3, 10.0).replace("**", ""),
+       S.cut_text(12.3, 10.0))
+
     ok("연간 발전은 달 날수로 가중",
        abs(S.annual_kwh_per_kw("충청남도")
            - sum(h * d for h, d in zip(S.hours_of("충청남도"), S._DAYS))) < 1e-9)

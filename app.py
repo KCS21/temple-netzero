@@ -867,6 +867,25 @@ if picked:
                        + " " + solar.CAVEAT)
             _solar_month_block(r.solar_kw, r.solar_place, data["elec"])
 
+            # 태양광으로 전기를 다 채웠을 때 — 두 앱·PDF·엑셀에 같은 문장
+            st.markdown(solar.cut_text(r.subtotal_t, r.elec_t))
+
+            # 공사비·보조금 — **컨설턴트 앱과 엑셀에만.** 공개 앱에는
+            # 내지 않습니다(돈 숫자가 개략값인 채로 견적처럼 읽힙니다).
+            _c = solar.cost(r.solar_kw, r.solar_place)
+            c1, c2, c3 = st.columns(3)
+            c1.metric("공사비(개략)", f"{_c['공사비'] / 10000:,.0f} 만원")
+            c2.metric("보조금", f"{_c['보조금'] / 10000:,.0f} 만원")
+            c3.metric("자부담", f"{_c['자부담'] / 10000:,.0f} 만원")
+            st.caption(
+                f"전기요금 절감 연 {_c['연간절감'] / 10000:,.0f} 만원"
+                f"({solar.ELEC_PRICE}원/kWh 기준) · 자부담 회수 "
+                f"약 {_c['회수연수']:,.1f}년. "
+                + (f"**{solar.SMALL_NOTE}** " if _c["소규모"] else "")
+                + (f"보조금은 {solar.SUBSIDY_MAX_KW} kW 까지만 셈했습니다. "
+                   if _c["보조금상한"] else "")
+                + solar.COST_CAVEAT)
+
             st.info(f"이 값은 **{picked.jibunAddr}** 한 지번에 잡힌 것만 더한 것입니다. "
                     "사찰 전체가 아닐 수 있습니다. "
                     "고지서에 적힌 주소가 이와 다르면 그 주소로 다시 찾아 주세요.")

@@ -815,6 +815,10 @@ def page_result():
         + (f" {sc.solar.NO_PLACE}" if r.solar_nation else "")
         + f" {sc.solar.CAVEAT}</p>", unsafe_allow_html=True)
     _solar_month_chart(r)
+    # 감축 한 줄. **공사비·보조금은 공개 앱에 내지 않습니다.**
+    st.markdown(f'<p class="jisu-small">'
+                + sc.solar.cut_text(r.total_t, r.elec_t).replace("**", "")
+                + "</p>", unsafe_allow_html=True)
 
     st.markdown("## 우리 절 유형")
     ratio = sc.ratio_text(r.ratio)

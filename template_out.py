@@ -41,6 +41,8 @@ SOLAR_ROWS = (21, 22)         # ⑤ 의 자가 태양광 발전량 / 자가소�
 # 그 아래 열두 달 표. 비워 두면 도구가 아무것도 쓰지 않습니다.
 SOLAR_NEED_ROWS = (27, 28, 29, 30)
 SOLAR_MONTH_ROW = 35
+SOLAR_COST_ROWS = (38, 39, 40, 41, 42)      # 공사비·보조금·자부담·절감·회수
+SOLAR_CUT_ROWS = (46, 47, 48)               # 지금 / 태양광 뒤 / 줄어드는 양
 
 FIXED_ROWS = range(8, 16)     # 8칸
 MOBILE_ROWS = range(8, 15)    # 7칸
@@ -181,6 +183,20 @@ def fill(
         ws.cell(SOLAR_NEED_ROWS[3], 4).value = round(need, 1)
         for i, h in enumerate(solar.hours_of(solar_place)):
             ws.cell(SOLAR_MONTH_ROW, 3 + i).value = round(h, 2)
+
+        # 공사비·보조금 — **엑셀과 컨설턴트 앱에만** 들어갑니다.
+        c = solar.cost(need, solar_place)
+        for row, key in zip(SOLAR_COST_ROWS,
+                            ("공사비", "보조금", "자부담", "연간절감", "회수연수")):
+            ws.cell(row, 4).value = round(c[key], 1 if key == "회수연수" else 0)
+
+        # 태양광으로 전기를 모두 채웠을 때
+        elec_t = em.power_t(elec_kwh)
+        total_t = elec_t + sum(em.burn(a.fuel, a.qty, a.scope).ar5_t
+                               for a in activities)
+        for row, v in zip(SOLAR_CUT_ROWS,
+                          (total_t, max(0.0, total_t - elec_t), elec_t)):
+            ws.cell(row, 4).value = round(v, 2)
 
     stamp = dt.date.today().strftime("%Y. %m. %d.")
     if SH_SRC in wb.sheetnames:

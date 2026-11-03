@@ -76,6 +76,24 @@ class _Pdf(FPDF):
         self.multi_cell(0, h, text, new_x="LMARGIN", new_y="NEXT")
 
 
+def _winter_line(r) -> str:
+    """겨울 석 달(12~2월) 태양광 발전과 우리 절 전기 한 줄.
+
+    **월별 전기가 있을 때만** 적습니다. 12달 표 대신 이 한 줄입니다 -
+    표는 PDF 한 장을 넘기게 만듭니다.
+    """
+    if not r.solar_month or not r.monthly:
+        return ""
+    by = {int(str(k)[4:]): float(v or 0) for k, v in r.monthly.items()}
+    if len(by) != 12 or not all(by.get(m) for m in range(1, 13)):
+        return ""
+    idx = (11, 0, 1)          # 12·1·2월
+    gen = sum(r.solar_month[i] for i in idx)
+    use = sum(by[i + 1] for i in idx)
+    return (f"겨울 석 달(12~2월) 태양광 발전 {gen:,.0f} kWh · "
+            f"우리 절 전기 {use:,.0f} kWh")
+
+
 def build(r: sc.Result, contact: str = "", day: Optional[dt.date] = None) -> bytes:
     p = _Pdf()
 
@@ -103,6 +121,7 @@ def build(r: sc.Result, contact: str = "", day: Optional[dt.date] = None) -> byt
                  new_x="LMARGIN", new_y="NEXT")
 
     # ── 숫자 세 개 ──
+    # (겨울 한 줄은 아래에서 씁니다)
     p.ln(3)
     gap = 4
     bw = (p.w_in - gap * 2) / 3
@@ -126,9 +145,19 @@ def build(r: sc.Result, contact: str = "", day: Optional[dt.date] = None) -> byt
     p.para(f"전기 {r.elec_kwh:,.0f} kWh · 도시가스 {r.gas_kwh:,.0f} kWh"
            + (f" · 등유 {r.kero_l:,.0f} L" if r.kero_l else "")
            + (f" · LPG {r.lpg_kg:,.0f} kg" if r.lpg_kg else "")
-           + f"  (국민 1인당 {r.per_capita_t} t · {r.per_capita_year}년 기준, "
-             f"태양광은 하루 {sc.em.SOLAR_HOURS}시간 발전)",
+           + f"  (국민 1인당 {r.per_capita_t} t · {r.per_capita_year}년 기준)",
            size=8.5, h=4.5, color=GREY)
+
+    # 태양광 — 어느 지역 값으로 셈했는지, 겨울 석 달은 어떤지.
+    # **공사비·보조금은 공개 PDF 에 넣지 않습니다**(컨설턴트 앱과 엑셀에만).
+    p.para(sc.solar.label(r.solar_place)
+           + (f" {sc.solar.NO_PLACE}" if r.solar_nation else "")
+           + f" {sc.solar.CAVEAT}", size=8.5, h=4.5, color=GREY)
+    winter = _winter_line(r)
+    if winter:
+        p.para(winter, size=8.5, h=4.5, color=GREY)
+    p.para(sc.solar.cut_text(r.total_t, r.elec_t).replace("**", ""),
+           size=9, h=4.5, color=DARK)
 
     # ── 유형 ──
     p.heading("우리 절 유형")

@@ -876,8 +876,10 @@ if picked:
             c1, c2, c3 = st.columns(3)
             c1.metric("공사비(개략)", f"{_c['공사비'] / 10000:,.0f} 만원")
             c2.metric("보조금", f"{_c['보조금'] / 10000:,.0f} 만원")
-            c3.metric("자부담", f"{_c['자부담'] / 10000:,.0f} 만원")
+            c3.metric("자부담", f"{_c['자부담'] / 10000:,.0f} 만원",
+                      help=solar.VAT_NOTE)
             st.caption(
+                f"자부담은 {solar.VAT_NOTE} "
                 f"전기요금 절감 연 {_c['연간절감'] / 10000:,.0f} 만원"
                 f"({solar.ELEC_PRICE}원/kWh 기준) · 자부담 회수 "
                 f"약 {_c['회수연수']:,.1f}년. "

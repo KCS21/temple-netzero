@@ -278,6 +278,18 @@ def main() -> int:
        abs(S.cost(20.5)["자부담"]
            - (S.cost(20.5)["공사비"] - S.cost(20.5)["보조금"])) < 1e-6)
     ok("10 kW 미만이면 소규모 표시", S.cost(9)["소규모"] and not S.cost(11)["소규모"])
+    # 연료가 있으면 **합계는 그만큼 크고, 남는 양도 0 이 아닙니다.**
+    # 전기만 보고 「0 이 된다」고 적으면 등유·LPG 를 쓰는 절에 틀린 말이
+    # 됩니다(작업지시 15 ②).
+    _fuel = sc.diagnose("원오사", "충청남도 계룡시 엄사면 엄사리 375-3", 2025,
+                        sc.MODE_LOOKUP, 25699, 0, kero_drums=1, lpg_small=1)
+    ok("감축 한 줄이 연료까지 넣은 합계에서 시작",
+       "11.3 t → 0.6 t" in S.cut_text(_fuel.total_t, _fuel.elec_t).replace("**", "")
+       and "(-10.7 t)" in S.cut_text(_fuel.total_t, _fuel.elec_t),
+       S.cut_text(_fuel.total_t, _fuel.elec_t).replace("**", ""))
+    ok("그때 남는 양 = 등유 + LPG",
+       abs((_fuel.total_t - _fuel.elec_t) - (_fuel.kero_t + _fuel.lpg_t)) < 1e-9)
+
     ok("감축 한 줄 — 남는 양은 합계에서 전기만 뺀 것",
        "12.3 t → 2.3 t" in S.cut_text(12.3, 10.0).replace("**", ""),
        S.cut_text(12.3, 10.0))

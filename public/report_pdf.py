@@ -87,11 +87,8 @@ def _winter_line(r) -> str:
     by = {int(str(k)[4:]): float(v or 0) for k, v in r.monthly.items()}
     if len(by) != 12 or not all(by.get(m) for m in range(1, 13)):
         return ""
-    idx = (11, 0, 1)          # 12·1·2월
-    gen = sum(r.solar_month[i] for i in idx)
-    use = sum(by[i + 1] for i in idx)
-    return (f"겨울 석 달(12~2월) 태양광 발전 {gen:,.0f} kWh · "
-            f"우리 절 전기 {use:,.0f} kWh")
+    return sc.solar.winter_text(r.solar_month,
+                                [by[m] for m in range(1, 13)])
 
 
 def build(r: sc.Result, contact: str = "", day: Optional[dt.date] = None) -> bytes:
@@ -128,7 +125,7 @@ def build(r: sc.Result, contact: str = "", day: Optional[dt.date] = None) -> byt
     y0 = p.get_y()
     boxes = (("연간 배출량", f"{r.total_t:,.1f} t"),
              ("국민 환산", f"{r.people:,.1f}명분"),
-             ("태양광 필요용량", f"{r.solar_kw:,.0f} kW"))
+             ("태양광 필요용량", f"{r.solar_kw:,.1f} kW"))
     for i, (lbl, val) in enumerate(boxes):
         x = p.l_margin + i * (bw + gap)
         p.set_fill_color(*PALE)

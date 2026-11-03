@@ -399,23 +399,28 @@ def _solar_month_block(kw: float, place: str, elec: dict) -> None:
     if use:
         rows += [{"달": months[i], "구분": "우리 절 전기", "kWh": use[i]}
                  for i in range(12)]
+    st.markdown(solar.legend(kw), unsafe_allow_html=True)
     df = pd.DataFrame(rows)
-    base = alt.Chart(df).encode(x=alt.X("달:N", sort=months, title=None))
+    # 달 이름은 **가로로**. 색은 두 앱이 같은 것을 씁니다(solar.py).
+    base = alt.Chart(df).encode(
+        x=alt.X("달:N", sort=months, title=None,
+                axis=alt.Axis(labelAngle=0)))
     chart = base.transform_filter(alt.datum.구분 == "태양광 발전(예상)").mark_line(
-        point=True, color="#2e7d32").encode(
+        point=alt.OverlayMarkDef(color=solar.LINE_COLOR),
+        color=solar.LINE_COLOR).encode(
         y=alt.Y("kWh:Q", title="kWh"), tooltip=["달", "구분", "kWh"])
     if use:
         bars = base.transform_filter(alt.datum.구분 == "우리 절 전기").mark_bar(
-            color="#bdbdbd").encode(y="kWh:Q", tooltip=["달", "구분", "kWh"])
+            color=solar.BAR_COLOR).encode(
+            y="kWh:Q", tooltip=["달", "구분", "kWh"])
         chart = bars + chart
     st.altair_chart(chart.properties(height=200), width="stretch")
 
     if use:
-        short = sum(max(0.0, use[m] - gen[m]) for m in (11, 0, 1))
         st.caption(
             "여름에는 남고 겨울에는 모자랍니다. 겨울 난방 전기는 태양광만으로 "
-            "채우기 어려워, **난방 전환을 먼저** 권합니다."
-            + (f" 겨울 석 달 약 **{short:,.0f} kWh** 부족합니다." if short else ""))
+            "채우기 어려워, **난방 전환을 먼저** 권합니다. "
+            + solar.winter_text(gen, use))
     else:
         st.caption("태양광은 겨울에 여름의 절반 정도만 만듭니다. "
                    "월별 전기가 열두 달 다 있으면 우리 절 사용량과 견주어 드립니다.")
@@ -853,7 +858,7 @@ if picked:
             k1, k2, k3 = st.columns(3)
             k1.metric("공개자료 배출량", f"{r.subtotal_t:,.1f} t")
             k2.metric("국민 환산", f"{r.people:,.1f}명분")
-            k3.metric("태양광 필요용량", f"{r.solar_kw:,.0f} kW")
+            k3.metric("태양광 필요용량", f"{r.solar_kw:,.1f} kW")
             st.caption(
                 f"전기와 도시가스만 더한 값입니다. 전기는 정부 공표 "
                 f"전력배출계수(소비단, 2023년 {em.ELEC_EF[em.ELEC_DEFAULT]}), "

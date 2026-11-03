@@ -31,7 +31,7 @@ import region
 
 PERIOD = "2022~2024"
 FILE = "태양광_발전시간_시도월_2022_2024.csv"
-SOURCE = f"전력거래소 EPSIS 실측 이용률, {PERIOD} 평균"
+SOURCE = f"전력거래소 EPSIS, {PERIOD} 평균"
 
 # 평년 날수. 표를 만들 때와 같은 잣대로 연간값을 냅니다.
 _DAYS = [calendar.monthrange(2023, m)[1] for m in range(1, 13)]
@@ -131,6 +131,20 @@ def label(place: str) -> str:
             f"하루 평균 {day_hours(name):.1f}시간으로 계산했습니다.")
 
 
+# 그림 색 — **두 앱이 같은 색을 씁니다.**
+# 막대(우리 절 전기)는 원래 월별 그래프의 녹색, 선(태양광)은 **해 색깔**인
+# 주황입니다. 둘 다 녹색이면 막대와 선이 구분되지 않습니다(2026-11-03).
+BAR_COLOR = "#2F6B3F"      # 우리 절 전기
+LINE_COLOR = "#E08A1E"     # 태양광 발전 — 선과 점을 같은 색으로
+
+
+def legend(kw: float) -> str:
+    """그림 위에 다는 범례 한 줄."""
+    return (f'<span style="color:{BAR_COLOR}">■</span> 우리 절 전기 &nbsp;&nbsp;'
+            f'<span style="color:{LINE_COLOR}">●</span> 태양광 발전'
+            f'({float(kw or 0):,.1f} kW)')
+
+
 CAVEAT = ("지붕 방향·그늘·경사는 반영되지 않았습니다. "
           "설치 가능 여부와 실제 발전량은 현장 확인이 필요합니다.")
 NO_PLACE = "지역을 찾지 못해 전국 평균을 썼습니다."
@@ -182,6 +196,29 @@ def cost(kw: float, place: str = NATION) -> dict:
         "소규모": kw < SMALL_KW and kw > 0,
         "보조금상한": kw > SUBSIDY_MAX_KW,
     }
+
+
+# 겨울 석 달 = 12·1·2월. 목록의 자리로는 11, 0, 1 입니다.
+WINTER = (11, 0, 1)
+
+
+def winter_text(gen: list, use: list) -> str:
+    """겨울 석 달 한 줄. **화면과 PDF 가 같은 문장을 씁니다.**
+
+    전에는 화면이 「약 N kWh 부족」, PDF 가 「발전 X · 전기 Y」로 **서로
+    다른 숫자**를 보여 주었습니다. 같은 것을 두 군데서 다르게 적으면
+    어느 쪽이 맞는지 사람이 재어 보게 됩니다.
+
+    `use` 가 비면(월별 전기 열두 달이 없으면) 빈 문자열입니다.
+    """
+    if not gen or not use or len(gen) < 12 or len(use) < 12:
+        return ""
+    g = sum(gen[i] for i in WINTER)
+    u = sum(use[i] for i in WINTER)
+    short = max(0.0, u - g)
+    return (f"겨울 석 달(12~2월) 태양광 발전 {g:,.0f} kWh · "
+            f"우리 절 전기 {u:,.0f} kWh"
+            + (f" — 약 {short:,.0f} kWh 부족합니다." if short else "."))
 
 
 def cut_text(total_t: float, elec_t: float) -> str:

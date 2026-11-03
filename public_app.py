@@ -207,6 +207,7 @@ for k, v in [("nav", PAGES[0]), ("rows", []), ("total", 0), ("kw", ""),
              ("result", None), ("queries", 0),
              ("diag_sent", None), ("pdf", None), ("pdf_sig", None),
              ("look_err", ""), ("no_data", ""), ("req_sent", 0),
+             ("req_done", None),
              ("req_msg", None), ("mode", "find"), ("page", 1),
              ("places", []), ("places_err", "")]:
     st.session_state.setdefault(k, v)
@@ -748,27 +749,33 @@ def _solar_month_chart(r) -> None:
             use = [by[m] for m in range(1, 13)]
             rows += [{"달": months[i], "구분": "우리 절 전기", "kWh": use[i]}
                      for i in range(12)]
+    st.markdown(f'<p class="jisu-small">{sc.solar.legend(r.solar_kw)}</p>',
+                unsafe_allow_html=True)
     df = pd.DataFrame(rows)
-    base = alt.Chart(df).encode(x=alt.X("달:N", sort=months, title=None))
+    # 달 이름은 **가로로** 둡니다(labelAngle=0). 세로로 서면 읽기 어렵습니다.
+    base = alt.Chart(df).encode(
+        x=alt.X("달:N", sort=months, title=None,
+                axis=alt.Axis(labelAngle=0)))
     line = base.transform_filter(
         alt.datum.구분 == "태양광 발전(예상)").mark_line(
-        point=True, color="#2e7d32").encode(
+        point=alt.OverlayMarkDef(color=sc.solar.LINE_COLOR),
+        color=sc.solar.LINE_COLOR).encode(
         y=alt.Y("kWh:Q", title="kWh"), tooltip=["달", "구분", "kWh"])
     chart = line
     if use:
         bars = base.transform_filter(
-            alt.datum.구분 == "우리 절 전기").mark_bar(color="#bdbdbd").encode(
+            alt.datum.구분 == "우리 절 전기").mark_bar(
+            color=sc.solar.BAR_COLOR).encode(
             y="kWh:Q", tooltip=["달", "구분", "kWh"])
         chart = bars + line
     st.altair_chart(chart.properties(height=190), width="stretch")
 
     if use:
-        short = sum(max(0.0, use[m] - r.solar_month[m]) for m in (11, 0, 1))
         st.markdown(
             '<p class="jisu-small">여름에는 남고 겨울에는 모자랍니다. '
             "겨울 난방 전기는 태양광만으로 채우기 어려워, <b>난방 전환을 "
-            "먼저</b> 권합니다."
-            + (f" 겨울 석 달 약 <b>{short:,.0f} kWh</b> 부족합니다." if short else "")
+            "먼저</b> 권합니다. "
+            + sc.solar.winter_text(r.solar_month, use)
             + "</p>", unsafe_allow_html=True)
     else:
         st.markdown('<p class="jisu-small">태양광은 겨울에 여름의 절반 정도만 '
@@ -793,7 +800,7 @@ def page_result():
     cols = st.columns(3)
     for c, (lbl, val) in zip(cols, (("연간 배출량", f"{r.total_t:,.1f} t"),
                                      ("국민 환산", f"{r.people:,.1f}명분"),
-                                     ("태양광 필요용량", f"{r.solar_kw:,.0f} kW"))):
+                                     ("태양광 필요용량", f"{r.solar_kw:,.1f} kW"))):
         c.markdown(f'<div class="jisu-num"><div class="l">{lbl}</div>'
                    f'<div class="v">{val}</div></div>', unsafe_allow_html=True)
     parts = [f"전기 {r.elec_kwh:,.0f} kWh", f"도시가스 {r.gas_kwh:,.0f} kWh"]
@@ -859,25 +866,59 @@ def page_result():
 
 
 # ═══════════ ④ 컨설팅 요청 ═══════════
+def _tail4(contact: str) -> str:
+    """연락처 끝 네 자리(또는 이메일 앞 두 글자). **전체는 보이지 않습니다.**"""
+    t = "".join(ch for ch in str(contact or "") if ch.isdigit())
+    if len(t) >= 4:
+        return "…" + t[-4:]
+    t = str(contact or "").strip()
+    return (t[:2] + "…") if t else ""
+
+
+def _request_done() -> None:
+    """보낸 뒤 화면 — 보내기 단추가 있던 자리에 접수 메시지만."""
+    done = st.session_state.get("req_done") or {}
+    who = (done.get("name") or "").strip()
+    tail = done.get("tail") or ""
+    whom = " · ".join(x for x in (who, tail) if x)
+    st.success("요청이 접수되었습니다."
+               + (f"  {whom} 로 지수광풍이 연락드리겠습니다."
+                  if whom else "  지수광풍이 연락드리겠습니다."))
+    # 화면을 이 자리로 내려 줍니다. 위에 그대로 두면 긴 폼에 가려
+    # 접수됐는지 모르고 한 번 더 누르게 됩니다.
+    st.markdown('<div id="jisu-done"></div>'
+                '<script>document.getElementById("jisu-done")'
+                '?.scrollIntoView({behavior:"smooth",block:"center"});</script>',
+                unsafe_allow_html=True)
+    if st.button("새 요청 쓰기", width="stretch"):
+        for k in ("req_name", "req_addr", "req_person", "req_contact",
+                  "req_text", "req_hp", "req_agree"):
+            st.session_state.pop(k, None)
+        st.session_state.req_msg = None
+        st.session_state.req_done = None
+        st.rerun()
+
+
 def page_request():
     _practice()
     st.markdown("## 컨설팅 요청")
     st.markdown("지수광풍은 사찰을 대상으로 **무료 컨설팅**을 하고 있습니다. "
                 "아래를 적어 보내 주시면 연락드립니다.")
-    msg = st.session_state.req_msg
-    if msg == "sent":
-        st.success(sheet.SENT_TEXT)
+    # 보낸 뒤에는 **입력 칸을 잠그고 보내기 단추를 감춥니다.** 전에는 내용이
+    # 그대로 살아 있어 한 번 더 누르면 **같은 요청이 두 번** 들어갔습니다.
+    # 칸을 비우지 않고 잠그는 것은, 무엇을 보냈는지 보이게 하려는 것입니다.
+    sent = st.session_state.req_msg == "sent"
 
-    name = st.text_input("절 이름 (필수)", key="req_name")
-    addr = st.text_input("주소 (필수)", key="req_addr")
-    person = st.text_input("담당자 이름 (필수)", key="req_person")
+    name = st.text_input("절 이름 (필수)", key="req_name", disabled=sent)
+    addr = st.text_input("주소 (필수)", key="req_addr", disabled=sent)
+    person = st.text_input("담당자 이름 (필수)", key="req_person", disabled=sent)
     contact = st.text_input("연락처 (필수) — 전화 또는 이메일", key="req_contact",
-                            placeholder="예: 010-1234-5678")
+                            placeholder="예: 010-1234-5678", disabled=sent)
     text = st.text_area(f"요청 내용 ({sheet.REQ_MAX_TEXT:,}자 이내)", key="req_text",
-                        max_chars=sheet.REQ_MAX_TEXT, height=140)
+                        max_chars=sheet.REQ_MAX_TEXT, height=140, disabled=sent)
     with st.container(key="hp"):
         hp = st.text_input("홈페이지", key="req_hp", label_visibility="collapsed",
-                           autocomplete="off")
+                           autocomplete="off", disabled=sent)
 
     r = st.session_state.result
     summary = r.summary() if r is not None else ""
@@ -887,7 +928,12 @@ def page_request():
 
     st.markdown(f"**{sheet.CONSENT_TITLE}**" + NL + NL
                 + NL.join(f"- {t}" for t in sheet.CONSENT_LINES))
-    agree = st.checkbox(sheet.CONSENT_CHECK, key="req_agree")
+    agree = st.checkbox(sheet.CONSENT_CHECK, key="req_agree", disabled=sent)
+
+    # 보냈으면 **보내기 단추가 있던 자리**에 접수 메시지를 띄웁니다.
+    if sent:
+        _request_done()
+        return
 
     used = st.session_state.req_sent >= sheet.SEND_LIMIT
     if used:
@@ -908,6 +954,9 @@ def page_request():
             # 자동 입력은 성공처럼 보여 줍니다. 막혔다는 것을 알려 줄 까닭이 없습니다.
             st.session_state.req_sent += 1
             st.session_state.req_msg = "sent"
+            # 접수 문구에 쓸 것만 남깁니다 - **연락처는 끝 네 자리만**.
+            # 화면 너머로 번호가 보이지 않게 하려는 것입니다.
+            st.session_state.req_done = {"name": name, "tail": _tail4(contact)}
             st.rerun()
         # 실패하면 입력한 내용은 지우지 않습니다(위젯이 그대로 들고 있습니다).
         st.session_state.req_msg = None

@@ -148,6 +148,57 @@ def _screen_tests():
         keys.load, keys.kakao, juso.search, kakao.search, bldrgst.fetch_dongs = saved
 
 
+def test_request_flow(ok) -> None:
+    """컨설팅 요청 — 보낸 뒤 화면 (작업지시 16 ①).
+
+    **`public.sheet` 를 바꿔야 합니다.** `public_app` 이
+    `from public import sheet` 로 가져오므로, 최상위 `sheet` 를 바꾸면
+    다른 객체라 가짜가 먹지 않습니다(2026-11-03 에 한 번 속았습니다).
+    """
+    import logging
+    from public import sheet as psheet
+    from streamlit.testing.v1 import AppTest
+    logging.getLogger("streamlit").setLevel(logging.ERROR)
+
+    real = psheet.send_request_detail
+    psheet.send_request_detail = lambda *a, **k: ("sent", "")
+    try:
+        at = AppTest.from_file(os.path.join(HERE, "public_app.py"),
+                               default_timeout=60).run()
+        at.session_state["nav"] = "컨설팅 요청"
+        at.run()
+        for k, v in (("req_name", "시험사"), ("req_addr", "어느군 어느면 1"),
+                     ("req_person", "아무개"), ("req_contact", "010-1234-4847")):
+            at.text_input(key=k).set_value(v)
+        at.text_area(key="req_text").set_value("상담 바랍니다.")
+        at.checkbox(key="req_agree").check()
+        at.run()
+        [b for b in at.button if "보내기" in (b.label or "")][0].click()
+        at.run()
+
+        msg = " ".join(s.value for s in at.success)
+        ok("보낸 뒤 접수 메시지", "요청이 접수되었습니다" in msg, msg)
+        ok("절 이름이 메시지에", "시험사" in msg)
+        ok("연락처는 끝 네 자리만", "…4847" in msg and "010-1234-4847" not in msg,
+           msg)
+        ok("보내기 단추가 사라짐",
+           not any("보내기" in (b.label or "") for b in at.button))
+        ok("입력 칸이 잠김",
+           all(at.text_input(key=k).disabled
+               for k in ("req_name", "req_addr", "req_person", "req_contact"))
+           and at.text_area(key="req_text").disabled)
+        ok("「새 요청 쓰기」 단추",
+           any("새 요청" in (b.label or "") for b in at.button))
+
+        [b for b in at.button if "새 요청" in (b.label or "")][0].click()
+        at.run()
+        ok("새 요청 쓰기를 누르면 칸이 비고 단추가 돌아옴",
+           at.text_input(key="req_name").value == ""
+           and any("보내기" in (b.label or "") for b in at.button))
+    finally:
+        psheet.send_request_detail = real
+
+
 def main() -> int:
     print()
     print(LINE)
@@ -446,6 +497,10 @@ def main() -> int:
     _screen_tests()
 
     print()
+    print()
+    print("  [9] 컨설팅 요청 — 보낸 뒤 화면")
+    test_request_flow(ok)
+
     print(LINE)
     if _fail:
         print(f"  {_count}개 중 {_fail}개 실패.")

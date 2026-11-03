@@ -126,7 +126,8 @@ def build(r: sc.Result, contact: str = "", day: Optional[dt.date] = None) -> byt
     p.para(f"전기 {r.elec_kwh:,.0f} kWh · 도시가스 {r.gas_kwh:,.0f} kWh"
            + (f" · 등유 {r.kero_l:,.0f} L" if r.kero_l else "")
            + (f" · LPG {r.lpg_kg:,.0f} kg" if r.lpg_kg else "")
-           + f"  (국민 1인당 {sc.em.KOR_PER_CAPITA} t, 하루 {sc.em.SOLAR_HOURS}시간 발전 기준)",
+           + f"  (국민 1인당 {r.per_capita_t} t · {r.per_capita_year}년 기준, "
+             f"태양광은 하루 {sc.em.SOLAR_HOURS}시간 발전)",
            size=8.5, h=4.5, color=GREY)
 
     # ── 유형 ──

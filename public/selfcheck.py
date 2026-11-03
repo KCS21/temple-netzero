@@ -99,13 +99,22 @@ def season_ratio(monthly: Optional[Dict]) -> Optional[float]:
     return max(by_m[m] for m in WINTER) / min(by_m[m] for m in SUMMER)
 
 
-def classify(heat, gas_kwh: float = 0.0, monthly: Optional[Dict] = None) -> str:
+def classify(heat, gas_kwh: float = 0.0, monthly: Optional[Dict] = None,
+             kero_l: float = 0.0, lpg_kg: float = 0.0) -> str:
     """우리 절 유형. **위에서부터 먼저 맞는 것** (작업지시 10 ③ 판정표).
 
     사람이 고른 것을 자료보다 먼저 믿습니다. 자료로 추정하는 것은
     아무것도 고르지 않았거나 「잘 모름」일 때뿐입니다.
+
+    **연료 양을 적었으면 그 난방 수단도 고른 것으로 봅니다**(2026-11-03).
+    등유 드럼 수만 적고 체크를 안 하면 계절비로 넘어가 「전기 난방형
+    (자료로 추정)」이 나왔습니다. 적어 낸 것보다 안 적은 것을 믿는 셈입니다.
     """
     heat = set(heat or ())
+    if float(kero_l or 0) > 0:
+        heat.add(HEAT_KERO)
+    if float(lpg_kg or 0) > 0:
+        heat.add(HEAT_LPG)
     if heat & set(FUEL_HEATS) and HEAT_ELEC not in heat:
         return TYPE_FUEL
     if HEAT_ELEC in heat:
@@ -156,6 +165,8 @@ class Result:
     lpg_t: float = 0.0
     total_t: float = 0.0
     people: float = 0.0
+    per_capita_t: float = 0.0       # 국민 환산에 쓴 1인당 값
+    per_capita_year: int = 0        # 그 값이 몇 년 것인지
     solar_kw: float = 0.0
     ratio: Optional[float] = None
     kind: str = TYPE_HOLD
@@ -182,17 +193,19 @@ def diagnose(name: str, addr: str, year: Optional[int], mode: str,
     if monthly:
         r.months = sum(1 for v in monthly.values() if v and float(v) > 0)
 
-    # 기본값 그대로: 전력 발전단(LB) · 도시가스 순발열량 · AR5 (CLAUDE.md 6장)
+    # 기본값 그대로: 전력 **소비단** · 도시가스 순발열량 · AR5 (CLAUDE.md 6장)
     r.elec_t = em.power_t(elec_kwh)
     r.gas_t = em.gas_t(gas_kwh)
     r.kero_t = em.burn(KEROSENE, kero).ar5_t if kero else 0.0
     r.lpg_t = em.burn(LPG, lpg).ar5_t if lpg else 0.0
     r.total_t = r.elec_t + r.gas_t + r.kero_t + r.lpg_t
-    r.people = r.total_t / em.KOR_PER_CAPITA
+    cap, cap_year = em.per_capita(year)
+    r.people = r.total_t / cap
+    r.per_capita_t, r.per_capita_year = cap, cap_year
     r.solar_kw = em.solar_capacity_kw(elec_kwh)
 
     r.ratio = season_ratio(monthly)
-    r.kind = classify(heat, gas_kwh, monthly)
+    r.kind = classify(heat, gas_kwh, monthly, kero_l=kero, lpg_kg=lpg)
     r.todo = actions(r.kind)
 
     r.notes = [LIMIT_TEXT]

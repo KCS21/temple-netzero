@@ -750,7 +750,10 @@ def page_result():
     if r.lpg_kg:
         parts.append(f"LPG {r.lpg_kg:,.0f} kg")
     st.markdown(f'<p class="jisu-small">{" · ".join(parts)}<br>'
-                f"국민 환산은 1인당 연 {sc.em.KOR_PER_CAPITA} t, 태양광은 하루 "
+                f"전기는 정부 공표 전력배출계수(소비단, 2023년 "
+                f"{sc.em.ELEC_EF[sc.em.ELEC_DEFAULT]})로 계산했습니다. "
+                f"국민 환산은 1인당 연 {r.per_capita_t} t"
+                f"({r.per_capita_year}년 기준), 태양광은 하루 "
                 f"{sc.em.SOLAR_HOURS}시간 발전으로 셈했습니다.</p>",
                 unsafe_allow_html=True)
 

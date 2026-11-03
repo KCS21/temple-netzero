@@ -191,14 +191,29 @@ def main() -> int:
     want = (em.power_t(200000) + em.gas_t(50000)
             + em.burn("등유(Kerosene)", 400).ar5_t
             + em.burn("LPG-프로판(LPG1호)", 110).ar5_t)
-    ok("배출량 = 전기 발전단 + 도시가스 + emissions.burn(등유·LPG)",
+    ok("배출량 = 전기 소비단 + 도시가스 + emissions.burn(등유·LPG)",
        abs(r.total_t - want) < 1e-9, f"{r.total_t} != {want}")
     ok("등유 400 L 은 emissions.burn 과 같음",
        abs(r.kero_t - em.burn("등유(Kerosene)", 400).ar5_t) < 1e-12)
     ok("LPG 는 프로판 표", abs(r.lpg_t - em.burn("LPG-프로판(LPG1호)", 110).ar5_t) < 1e-12)
-    ok("전기는 발전단 0.3844", abs(r.elec_t - 200000 * 0.3844 / 1000) < 1e-9)
-    ok("국민 환산 = 배출량 / 13.1", abs(r.people - r.total_t / em.KOR_PER_CAPITA) < 1e-9)
+    # 2026-11-03 기본 계수를 소비단으로, 1인당을 연도별 표로 바꿨습니다(작업지시 13)
+    ok("전기는 소비단 0.4173", abs(r.elec_t - 200000 * 0.4173 / 1000) < 1e-9)
+    ok("국민 환산은 그 해 1인당 값으로", abs(r.people - r.total_t / r.per_capita_t) < 1e-9)
+    ok("1인당 값에 연도가 함께 온다", r.per_capita_year in em.PER_CAPITA)
     ok("태양광 = 전기 / 365 / 3.5", abs(r.solar_kw - 200000 / 365 / 3.5) < 1e-9)
+
+    # 연료 양을 적었으면 그 난방 수단도 고른 것으로 봅니다(작업지시 13 ④).
+    # 전에는 체크 없이 드럼 수만 적으면 계절비로 넘어가 「전기 난방형
+    # (자료로 추정)」이 나왔습니다 - 적어 낸 것보다 안 적은 것을 믿는 셈.
+    ok("체크 없이 등유 2드럼만 -> 연료 난방형",
+       sc.classify([], 0, HIGH, kero_l=sc.kerosene_l(2)) == sc.TYPE_FUEL,
+       sc.classify([], 0, HIGH, kero_l=sc.kerosene_l(2)))
+    ok("체크 없이 LPG 만 적어도 연료 난방형",
+       sc.classify([], 0, HIGH, lpg_kg=sc.lpg_kg(1, 0)) == sc.TYPE_FUEL)
+    ok("전기판넬 체크 + 등유 1드럼 -> 전기 난방형 (지금 규칙 그대로)",
+       sc.classify([sc.HEAT_ELEC], 0, HIGH, kero_l=sc.kerosene_l(1)) == sc.TYPE_ELEC)
+    ok("연료 양이 0 이면 지금까지와 같음",
+       sc.classify([], 0, HIGH) == sc.classify([], 0, HIGH, kero_l=0, lpg_kg=0))
     ok("화목은 합계에 안 넣고 한계에 밝힘", r.wood and sc.WOOD_TEXT in r.notes)
     ok("먼저 해 볼 일 세 가지, 1번은 계약전력",
        len(r.todo) == 3 and "계약전력" in r.todo[0])

@@ -18,7 +18,7 @@ INDEX/MATCH 가 빈값을 돌려주고 계산이 통째로 0 이 됩니다.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 MJ_PER_KWH = 3.6
 
@@ -122,12 +122,29 @@ GWP: Dict[str, Tuple[float, float]] = {
 GWP_DEFAULT = "AR5"
 
 # ── 전력 배출계수 (kgCO2eq/kWh) ──────────────────────────────
+# 2026-11-03 기본값을 **소비단**으로 바꿨습니다(작업지시 13).
+#
+# 2026-09-13 에 발전단을 기본으로 삼은 근거는 「발전단 = LB(지역 기준),
+# 소비단 = MB(시장 기준)」라는 짝짓기였습니다. 그런데 작업지시 06 에서
+# **소비단도 지역 기준**임을 확인하고 「MB」 표기를 지웠는데, 기본값은
+# 다시 보지 않았습니다. **근거가 사라진 결정이 남아 있었습니다.**
+#
+# 정부가 「전력배출계수」로 공표한 대표값은 소비단입니다(기후에너지환경부
+# 2025.12, 국가 온실가스 통계관리위원회, 2023년 0.4173 tCO2eq/MWh).
+# 배출권거래제(소비단 3년 평균)와 기업 Scope 2·ESG·기후공시가 모두
+# 소비단을 씁니다. 발전단에 남은 근거는 GHG Protocol 이 송배전 손실을
+# Scope 3 로 따로 센다는 점뿐이고, 사찰 진단은 국내 제도·공시와
+# 견줘지므로 소비단을 기본으로 합니다.
+#
+# **LB·MB 글자는 쓰지 마십시오.** 둘 다 지역 기준이라 헷갈립니다.
+# 계수는 해마다 12월에 갱신됩니다. 키에 연도를 붙여 두고, 새 값이 나오면
+# **줄을 더하고 기본값만 옮기십시오.**
 ELEC_EF: Dict[str, float] = {
-    "발전단(LB)": 0.3844,    # 기본값. 보고용 원칙
-    "소비단(MB)": 0.4173,    # RE100 등 참고용
-    "보고서2024": 0.4747,    # 기존 5개 사찰과 비교할 때만
+    "소비단(2023)": 0.4173,                  # 기본값. 정부 공표 대표값
+    "발전단(2023, 국제기준 참고)": 0.3844,   # GHG Protocol 쪽 참고용
+    "보고서2024": 0.4747,                    # 기존 5개 사찰과 비교할 때만
 }
-ELEC_DEFAULT = "발전단(LB)"
+ELEC_DEFAULT = "소비단(2023)"
 
 # ── 도시가스 kWh -> Nm3 ────────────────────────────────────
 # 2026-09-14 순발열량 38.9MJ 로 확정했습니다. 근거 둘.
@@ -148,8 +165,19 @@ GAS_BASIS: Dict[str, float] = {
 GAS_BASIS_DEFAULT = "순발열량 38.9MJ"
 
 # ── 개략 진단용 ──────────────────────────────────────────────
-KOR_PER_CAPITA = 13.1        # 국민 1인당 연간 배출량 (tCO2eq)
-SOLAR_HOURS = 3.5            # 일평균 발전시간. 법문사 42kW 실측
+# 국민 1인당 연간 배출량 (tCO2eq) — **연도별로 둡니다.**
+# 국가데이터처 지표누리 국가발전지표 「1인당 온실가스배출량」(2026-10-31 갱신).
+# 2026-11-03 이전에는 13.1 하나를 박아 두었습니다(출처 불명).
+PER_CAPITA: Dict[int, float] = {
+    2023: 13.7,
+}
+
+# 일평균 발전시간.
+#
+# **「법문사 42kW 실측」이라고 적어 두었던 것은 틀렸습니다**(2026-11-03).
+# 법문사 실측은 48,313 kWh / 42.42 kW / 365 = 하루 약 3.1시간입니다.
+# 3.5 는 「탄소중립 첫걸음 워크시트」의 관례값입니다.
+SOLAR_HOURS = 3.5
 WATER_EF = 0.332             # kgCO2eq/톤. Scope 3 이라 템플릿에 없음
 
 # 공개자료(전기+가스)가 총 배출량에서 차지하는 비율.
@@ -238,6 +266,25 @@ def burn(fuel: str, qty: float, scope: str = "고정연소") -> Burn:
 
 
 # ── 전력 ─────────────────────────────────────────────────────
+def per_capita(year: Optional[int] = None) -> Tuple[float, int]:
+    """그 해의 국민 1인당 배출량과 **몇 년 값인지**를 함께 돌려줍니다.
+
+    그 해 값이 있으면 그 값, 없으면 **그 해보다 앞선 가장 최근 값**,
+    그것도 없으면 표에서 가장 최근 값입니다. 화면·PDF·엑셀에 연도를
+    함께 적으려고 둘을 같이 돌려줍니다 - 「13.7 t」만 적으면 언제 값인지
+    알 수 없고, 해마다 갱신되는 숫자입니다.
+    """
+    years = sorted(PER_CAPITA)
+    if not years:
+        raise EmissionError("국민 1인당 배출량 표가 비어 있습니다.")
+    if year is None:
+        y = years[-1]
+    else:
+        earlier = [x for x in years if x <= int(year)]
+        y = earlier[-1] if earlier else years[-1]
+    return PER_CAPITA[y], y
+
+
 def power_t(kwh: float, basis: str = ELEC_DEFAULT) -> float:
     """구매전력. 이미 에너지 단위라 발열량을 쓰지 않습니다."""
     if basis not in ELEC_EF:
@@ -288,6 +335,9 @@ class Rough:
     gwp: str = ""
     coverage: float = 0.0
     estimated_total_t: float = 0.0
+    # 국민 환산에 쓴 1인당 값과 **그 값의 연도**. 화면에 함께 적습니다.
+    per_capita_t: float = 0.0
+    per_capita_year: int = 0
 
 
 def diagnose(
@@ -297,12 +347,14 @@ def diagnose(
     elec_basis: str = ELEC_DEFAULT,
     gas_basis: str = GAS_BASIS_DEFAULT,
     gwp: str = GWP_DEFAULT,
+    year: Optional[int] = None,
 ) -> Rough:
     e = power_t(elec_kwh, elec_basis)
     nm3 = gas_kwh_to_nm3(gas_kwh, gas_basis)
     g = burn("도시가스/LNG", nm3).total_t(gwp)
     sub = e + g
     cov = COVERAGE.get(temple_type, 0.90)
+    cap, cap_year = per_capita(year)
 
     return Rough(
         elec_kwh=float(elec_kwh or 0),
@@ -311,7 +363,9 @@ def diagnose(
         elec_t=e,
         gas_t=g,
         subtotal_t=sub,
-        people=sub / KOR_PER_CAPITA,          # 공개자료 기준
+        people=sub / cap,                     # 공개자료 기준
+        per_capita_t=cap,
+        per_capita_year=cap_year,
         solar_kw=solar_capacity_kw(elec_kwh),
         elec_basis=elec_basis,
         elec_ef=ELEC_EF[elec_basis],

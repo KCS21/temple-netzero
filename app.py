@@ -772,7 +772,7 @@ if picked:
     if d:
         data, ttype, year = d
         es, gs = bldengy.summarize(data["elec"]), bldengy.summarize(data["gas"])
-        r = em.diagnose(es["total"], gs["total"], ttype)
+        r = em.diagnose(es["total"], gs["total"], ttype, year=year)
         lvl, msg = em.confidence(es["total"], gs["total"])
 
         if es["total"] == 0 and gs["total"] == 0:
@@ -789,7 +789,11 @@ if picked:
             k1.metric("공개자료 배출량", f"{r.subtotal_t:,.1f} t")
             k2.metric("국민 환산", f"{r.people:,.1f}명분")
             k3.metric("태양광 필요용량", f"{r.solar_kw:,.0f} kW")
-            st.caption("전기와 도시가스만 더한 값입니다. " + em.UNCOVERED_TEXT)
+            st.caption(
+                f"전기와 도시가스만 더한 값입니다. 전기는 정부 공표 "
+                f"전력배출계수(소비단, 2023년 {em.ELEC_EF[em.ELEC_DEFAULT]}), "
+                f"국민 환산은 1인당 연 {r.per_capita_t} t"
+                f"({r.per_capita_year}년 기준)입니다. " + em.UNCOVERED_TEXT)
 
             st.info(f"이 값은 **{picked.jibunAddr}** 한 지번에 잡힌 것만 더한 것입니다. "
                     "사찰 전체가 아닐 수 있습니다. "

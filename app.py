@@ -865,7 +865,6 @@ if picked:
             st.caption(solar.label(r.solar_place)
                        + (" " + solar.NO_PLACE if _no_place else "")
                        + " " + solar.CAVEAT)
-            _solar_month_block(r.solar_kw, r.solar_place, data["elec"])
 
             # 태양광으로 전기를 다 채웠을 때 — 두 앱·PDF·엑셀에 같은 문장
             st.markdown(solar.cut_text(r.subtotal_t, r.elec_t))
@@ -1010,9 +1009,12 @@ if picked:
                         "최근 해로 바꿔 보십시오."
                     )
 
-            if es["total"]:
-                st.caption("월별 전기 사용량 (kWh)")
-                st.bar_chart({f"{k[4:]}월": v for k, v in sorted(data["elec"].items())})
+            # 월별 전기와 태양광 발전을 **한 그림**에 둡니다(2026-11-03).
+            # 전에는 태양광 칸 아래에 같은 막대를 한 번 더 그려, 같은
+            # 자료가 화면에 두 번 나왔습니다.
+            if es["total"] or r.solar_kw:
+                st.caption("월별 전기 사용량과 태양광 발전 (kWh)")
+                _solar_month_block(r.solar_kw, r.solar_place, data["elec"])
 
             with st.expander("자세히 보기"):
                 st.table({

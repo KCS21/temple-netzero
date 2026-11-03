@@ -814,7 +814,6 @@ def page_result():
         f'<p class="jisu-small">{sc.solar.label(r.solar_place)}'
         + (f" {sc.solar.NO_PLACE}" if r.solar_nation else "")
         + f" {sc.solar.CAVEAT}</p>", unsafe_allow_html=True)
-    _solar_month_chart(r)
     # 감축 한 줄. **공사비·보조금은 공개 앱에 내지 않습니다.**
     st.markdown(f'<p class="jisu-small">'
                 + sc.solar.cut_text(r.total_t, r.elec_t).replace("**", "")
@@ -829,10 +828,11 @@ def page_result():
     st.markdown("## 먼저 해 볼 일")
     st.markdown(NL.join(f"{i}. {t}" for i, t in enumerate(r.todo, 1)))
 
-    if r.monthly and any(r.monthly.values()):
-        st.markdown("## 월별 전기 사용량 (kWh)")
-        st.bar_chart({f"{sc._month_of(k):02d}월": v for k, v in sorted(r.monthly.items())},
-                     color=GREEN, x_label="", y_label="")
+    # 월별 전기와 태양광 발전을 **한 그림**에 둡니다(2026-11-03).
+    # 전에는 태양광 칸 아래에 같은 막대가 한 번 더 나왔습니다.
+    if (r.monthly and any(r.monthly.values())) or r.solar_kw:
+        st.markdown("## 월별 전기 사용량과 태양광 발전 (kWh)")
+        _solar_month_chart(r)
 
     st.markdown("## 지원사업")
     st.markdown(sc.SUPPORT_TEXT)

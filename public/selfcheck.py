@@ -18,6 +18,7 @@ from typing import Dict, List, Optional
 
 import bldrgst
 import emissions as em
+import solar
 
 # ── 난방 수단 (여러 개 고르기) ──
 HEAT_ELEC = "전기판넬·전기보일러·심야전기"
@@ -168,6 +169,9 @@ class Result:
     per_capita_t: float = 0.0       # 국민 환산에 쓴 1인당 값
     per_capita_year: int = 0        # 그 값이 몇 년 것인지
     solar_kw: float = 0.0
+    solar_place: str = ""        # 어느 시도 값으로 셈했는지
+    solar_nation: bool = False   # 시도를 못 찾아 전국 평균을 썼는가
+    solar_month: list = field(default_factory=list)   # 달마다 만드는 전기
     ratio: Optional[float] = None
     kind: str = TYPE_HOLD
     todo: List[str] = field(default_factory=list)
@@ -202,7 +206,10 @@ def diagnose(name: str, addr: str, year: Optional[int], mode: str,
     cap, cap_year = em.per_capita(year)
     r.people = r.total_t / cap
     r.per_capita_t, r.per_capita_year = cap, cap_year
-    r.solar_kw = em.solar_capacity_kw(elec_kwh)
+    # 태양광은 주소의 시도 실측값으로. 못 찾으면 전국 평균입니다.
+    r.solar_place, r.solar_nation = solar.resolve(addr)
+    r.solar_kw = em.solar_capacity_kw(elec_kwh, r.solar_place)
+    r.solar_month = solar.monthly_gen(r.solar_kw, r.solar_place)
 
     r.ratio = season_ratio(monthly)
     r.kind = classify(heat, gas_kwh, monthly, kero_l=kero, lpg_kg=lpg)

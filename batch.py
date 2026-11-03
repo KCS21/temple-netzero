@@ -34,6 +34,7 @@ import emissions as em
 import juso
 import portal
 import region
+import solar
 import store
 
 LIST_NAME = "녹색사찰_명단.csv"
@@ -291,8 +292,10 @@ def run_one(t: Target, year: int, confm_key: str, service_key: str,
         keep["gas"] = dict(data["gas"])
     es = bldengy.summarize(data["elec"])
     gs = bldengy.summarize(data["gas"])
+    # 태양광은 **그 절의 시도 실측값**으로 셉니다(작업지시 14).
     r = em.diagnose(es["total"], gs["total"],
-                    "산중" if j.is_mountain else "도심")
+                    "산중" if j.is_mountain else "도심",
+                    year=year, place=solar.place_of(j.jibunAddr))
     lvl, _ = em.confidence(es["total"], gs["total"])
 
     # 옆 지번은 **세기만 합니다.** 자동으로 찾거나 더하지 않습니다.

@@ -25,3 +25,4 @@ __pycache__/
 원단위_배수_백업_*.csv
 녹색사찰_명단_백업_*.csv
 서식_*_백업_*.xlsx
+data/EPSIS_*_원본.js

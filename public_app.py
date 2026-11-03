@@ -382,6 +382,8 @@ def _run_search(keyword: str, page: int = 1, keep_places: bool = False):
     except juso.JusoError as e:
         rows, total = [], 0
         err = portal.hide_keys(str(e))
+        # 주소 서버가 응답하지 않으면 지번 직접 입력 칸을 펼쳐 둡니다.
+        st.session_state["open_direct"] = (str(e) == juso.DOWN_TEXT)
     except Exception:
         rows, total, err = [], 0, "주소 검색이 잠시 되지 않습니다. 잠시 뒤 다시 찾아 주세요."
     st.session_state.update(rows=rows, total=total, page=page, kw=keyword,
@@ -397,7 +399,8 @@ def _direct_block():
     **접어 둡니다.** 도로명이 없는 지번은 주소 검색에 무엇을 넣어도 안 나옵니다.
     그 동네를 찾아 행정구역코드만 빌리고 번·지는 갈아 끼웁니다(`juso.sibling`).
     """
-    with st.expander("지번을 직접 넣기 (주소 검색에 안 나올 때)", expanded=False):
+    with st.expander("지번을 직접 넣기 (주소 검색에 안 나올 때)",
+                     expanded=bool(st.session_state.get("open_direct"))):
         st.markdown('<p class="jisu-small">고지서나 지도 앱에서 <b>지번을 확인하신 뒤</b> '
                     "넣어 주세요.</p>", unsafe_allow_html=True)
         dong = st.text_input("시·군·구와 동·리 이름", key="dj_dong",
@@ -723,6 +726,55 @@ def _send_diag_once(r):
                      args=(SHEET_URL, SHEET_TOKEN, sheet.KIND_DIAG, data)).start()
 
 
+def _solar_month_chart(r) -> None:
+    """태양광 월 발전과 우리 절 월별 전기를 나란히.
+
+    숫자 하나(연간 필요용량)만 보면 **여름에 남고 겨울에 모자라는** 사정이
+    안 보입니다. 겨울 난방 전기는 태양광만으로 채우기 어려워 난방 전환을
+    먼저 권하게 되는 까닭입니다(작업지시 14 ⑤).
+    """
+    if not r.solar_kw or not r.solar_month:
+        return
+    import altair as alt
+    import pandas as pd
+
+    months = [f"{m}월" for m in range(1, 13)]
+    rows = [{"달": months[i], "구분": "태양광 발전(예상)", "kWh": r.solar_month[i]}
+            for i in range(12)]
+    use = []
+    if r.monthly:
+        by = {int(str(k)[4:]): float(v or 0) for k, v in r.monthly.items()}
+        if len(by) == 12 and all(by.get(m) for m in range(1, 13)):
+            use = [by[m] for m in range(1, 13)]
+            rows += [{"달": months[i], "구분": "우리 절 전기", "kWh": use[i]}
+                     for i in range(12)]
+    df = pd.DataFrame(rows)
+    base = alt.Chart(df).encode(x=alt.X("달:N", sort=months, title=None))
+    line = base.transform_filter(
+        alt.datum.구분 == "태양광 발전(예상)").mark_line(
+        point=True, color="#2e7d32").encode(
+        y=alt.Y("kWh:Q", title="kWh"), tooltip=["달", "구분", "kWh"])
+    chart = line
+    if use:
+        bars = base.transform_filter(
+            alt.datum.구분 == "우리 절 전기").mark_bar(color="#bdbdbd").encode(
+            y="kWh:Q", tooltip=["달", "구분", "kWh"])
+        chart = bars + line
+    st.altair_chart(chart.properties(height=190), width="stretch")
+
+    if use:
+        short = sum(max(0.0, use[m] - r.solar_month[m]) for m in (11, 0, 1))
+        st.markdown(
+            '<p class="jisu-small">여름에는 남고 겨울에는 모자랍니다. '
+            "겨울 난방 전기는 태양광만으로 채우기 어려워, <b>난방 전환을 "
+            "먼저</b> 권합니다."
+            + (f" 겨울 석 달 약 <b>{short:,.0f} kWh</b> 부족합니다." if short else "")
+            + "</p>", unsafe_allow_html=True)
+    else:
+        st.markdown('<p class="jisu-small">태양광은 겨울에 여름의 절반 정도만 '
+                    "만듭니다.</p>", unsafe_allow_html=True)
+
+
 def page_result():
     r = st.session_state.result
     if r is None:
@@ -753,9 +805,16 @@ def page_result():
                 f"전기는 정부 공표 전력배출계수(소비단, 2023년 "
                 f"{sc.em.ELEC_EF[sc.em.ELEC_DEFAULT]})로 계산했습니다. "
                 f"국민 환산은 1인당 연 {r.per_capita_t} t"
-                f"({r.per_capita_year}년 기준), 태양광은 하루 "
-                f"{sc.em.SOLAR_HOURS}시간 발전으로 셈했습니다.</p>",
+                f"({r.per_capita_year}년 기준)입니다.</p>",
                 unsafe_allow_html=True)
+
+    # 태양광 — 어느 지역 값으로 셈했는지 밝히고 바로 아래 월별 그림.
+    # **다른 칸은 움직이지 않습니다**(작업지시 14 ⑤).
+    st.markdown(
+        f'<p class="jisu-small">{sc.solar.label(r.solar_place)}'
+        + (f" {sc.solar.NO_PLACE}" if r.solar_nation else "")
+        + f" {sc.solar.CAVEAT}</p>", unsafe_allow_html=True)
+    _solar_month_chart(r)
 
     st.markdown("## 우리 절 유형")
     ratio = sc.ratio_text(r.ratio)

@@ -13,6 +13,9 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Tuple
 
+import logging
+import time
+
 import requests
 
 import portal          # 오류 문구에서 승인키를 가리는 hide_keys 하나만 씁니다
@@ -37,6 +40,14 @@ FRIENDLY = {
     "E0005": "승인키가 비어 있습니다.",
     "E0006": "승인키가 올바르지 않거나 기간이 지났습니다. 주소기반산업지원서비스 마이페이지에서 확인해 주세요.",
 }
+
+
+# 주소 서버가 응답하지 않을 때 화면에 보일 말. **이것만 보여 줍니다.**
+DOWN_TEXT = ("행정안전부 주소 서버가 응답하지 않습니다. 잠시 뒤 다시 찾거나, "
+             "아래 「지번을 직접 넣어 조회하기」를 이용해 주세요.")
+
+
+log = logging.getLogger(__name__)
 
 
 class JusoError(Exception):
@@ -269,23 +280,33 @@ def search(
         "addInfoYn": "Y",
     }
 
+    # 주소 서버가 조용히 안 받는 날이 있습니다(ConnectTimeout, 2026-11-03).
+    # **두 주소를 한 번씩 돌고 끝내지 않고**, 2~3초 쉬고 한 바퀴 더 돕니다.
+    # 잠깐 끊긴 것이라면 두 번째에 대개 붙습니다.
     last_err = None
-    for url in ENDPOINTS:
-        try:
-            r = requests.get(url, params=params, timeout=timeout)
-            r.raise_for_status()
-            data = _loads(r.text)
-        except requests.RequestException as e:
-            last_err = e
-            continue
+    for attempt in range(2):
+        if attempt:
+            time.sleep(2.5)
+        for url in ENDPOINTS:
+            try:
+                r = requests.get(url, params=params, timeout=timeout)
+                r.raise_for_status()
+                data = _loads(r.text)
+            except requests.RequestException as e:
+                last_err = e
+                continue
 
-        rows, total = _unpack(data)
-        if wide:
-            rows = _name_first(rows, kw)[:per_page]
-        return rows, total
+            rows, total = _unpack(data)
+            if wide:
+                rows = _name_first(rows, kw)[:per_page]
+            return rows, total
 
-    raise JusoError("주소 서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요. "
-                    f"({portal.hide_keys(last_err)})")
+    # **영문 예외 원문을 화면에 내지 않습니다.** 회원이 읽을 수 없고,
+    # 「인터넷 연결을 확인하세요」는 제 공유기를 보러 가게 만드는 **틀린
+    # 안내**입니다 - 끊긴 쪽은 행정안전부 서버입니다(7장과 같은 짝).
+    # 원문은 로그로만 남깁니다.
+    log.warning("juso 연결 실패: %s", portal.hide_keys(last_err))
+    raise JusoError(DOWN_TEXT)
 
 
 def _unpack(data: dict) -> Tuple[List[Juso], int]:

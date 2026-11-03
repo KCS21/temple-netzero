@@ -24,6 +24,7 @@ import keys
 import batch
 import portal
 import region
+import solar
 import store
 import template_out as tpl
 
@@ -142,7 +143,11 @@ def run_search(keyword, page):
     try:
         rows, total = juso.search(keyword, CONFM_KEY, page=page, per_page=PER_PAGE)
     except juso.JusoError as e:
-        st.session_state.update(rows=[], total=0, error=str(e), searched=True)
+        # 주소 서버가 응답하지 않으면 **지번 직접 입력 칸을 펼쳐 둡니다.**
+        # 실패에 다음 행동이 붙어 있어야 합니다(2장) - 접힌 칸을 안내만
+        # 하면 시니어 회원은 거기서 멈춥니다.
+        st.session_state.update(rows=[], total=0, error=str(e), searched=True,
+                                open_direct=(str(e) == juso.DOWN_TEXT))
         return
     st.session_state.update(rows=rows, total=total, page=page, kw=keyword,
                             picked=None, error=None, bld=None, diag=None,
@@ -358,6 +363,64 @@ def temple_name(j) -> str:
     return typed or auto_temple_name(j)
 
 
+def _solar_place_for_excel() -> str:
+    """엑셀에 적을 시도. **화면 진단과 같은 값**이어야 합니다."""
+    picked = st.session_state.get("picked")
+    return solar.place_of(getattr(picked, "jibunAddr", "") or "") if picked else ""
+
+
+def _solar_month_block(kw: float, place: str, elec: dict) -> None:
+    """태양광 월 발전과 우리 절 월별 전기를 나란히 보여 줍니다.
+
+    **여름에는 남고 겨울에는 모자랍니다.** 숫자 하나(연간 필요용량)만
+    보면 그 사정이 안 보입니다 - 겨울 난방 전기는 태양광만으로 채우기
+    어려워 난방 전환을 먼저 권하게 되는 까닭입니다.
+
+    월별 전기가 열두 달 다 있을 때만 막대를 그립니다. 없으면 태양광
+    선만 그립니다(작업지시 14 ⑤).
+    """
+    if not kw:
+        return
+    import altair as alt
+    import pandas as pd
+
+    gen = solar.monthly_gen(kw, place)
+    months = [f"{m:02d}월" for m in range(1, 13)]
+    use = []
+    if elec:
+        by = {}
+        for ym, v in elec.items():
+            by[int(str(ym)[4:])] = float(v or 0)
+        if len(by) == 12 and all(by.get(m) for m in range(1, 13)):
+            use = [by[m] for m in range(1, 13)]
+
+    rows = [{"달": months[i], "구분": "태양광 발전(예상)", "kWh": gen[i]}
+            for i in range(12)]
+    if use:
+        rows += [{"달": months[i], "구분": "우리 절 전기", "kWh": use[i]}
+                 for i in range(12)]
+    df = pd.DataFrame(rows)
+    base = alt.Chart(df).encode(x=alt.X("달:N", sort=months, title=None))
+    chart = base.transform_filter(alt.datum.구분 == "태양광 발전(예상)").mark_line(
+        point=True, color="#2e7d32").encode(
+        y=alt.Y("kWh:Q", title="kWh"), tooltip=["달", "구분", "kWh"])
+    if use:
+        bars = base.transform_filter(alt.datum.구분 == "우리 절 전기").mark_bar(
+            color="#bdbdbd").encode(y="kWh:Q", tooltip=["달", "구분", "kWh"])
+        chart = bars + chart
+    st.altair_chart(chart.properties(height=200), width="stretch")
+
+    if use:
+        short = sum(max(0.0, use[m] - gen[m]) for m in (11, 0, 1))
+        st.caption(
+            "여름에는 남고 겨울에는 모자랍니다. 겨울 난방 전기는 태양광만으로 "
+            "채우기 어려워, **난방 전환을 먼저** 권합니다."
+            + (f" 겨울 석 달 약 **{short:,.0f} kWh** 부족합니다." if short else ""))
+    else:
+        st.caption("태양광은 겨울에 여름의 절반 정도만 만듭니다. "
+                   "월별 전기가 열두 달 다 있으면 우리 절 사용량과 견주어 드립니다.")
+
+
 def _direct_block():
     """지번을 손으로 넣어 바로 조회 (작업지시 08 5번).
 
@@ -370,7 +433,8 @@ def _direct_block():
     수 있으면 그 길이 낫지만, 명단 69곳에서 건물이 안 잡힌 13곳 중 6곳은
     **옆 지번조차 없었습니다.** 본번이 많아 목록을 막는 곳도 있습니다.
     """
-    with st.expander("자세히 — 지번을 직접 넣어 조회하기", expanded=False):
+    with st.expander("자세히 — 지번을 직접 넣어 조회하기",
+                     expanded=bool(st.session_state.get("open_direct"))):
         st.markdown(
             '<p class="hint">주소로 찾아지지 않는 지번이 있습니다. '
             "도로명주소가 붙지 않은 땅은 <b>무엇을 넣어도 검색에 안 나옵니다.</b><br>"
@@ -772,7 +836,8 @@ if picked:
     if d:
         data, ttype, year = d
         es, gs = bldengy.summarize(data["elec"]), bldengy.summarize(data["gas"])
-        r = em.diagnose(es["total"], gs["total"], ttype, year=year)
+        _place, _no_place = solar.resolve(picked.jibunAddr)
+        r = em.diagnose(es["total"], gs["total"], ttype, year=year, place=_place)
         lvl, msg = em.confidence(es["total"], gs["total"])
 
         if es["total"] == 0 and gs["total"] == 0:
@@ -794,6 +859,13 @@ if picked:
                 f"전력배출계수(소비단, 2023년 {em.ELEC_EF[em.ELEC_DEFAULT]}), "
                 f"국민 환산은 1인당 연 {r.per_capita_t} t"
                 f"({r.per_capita_year}년 기준)입니다. " + em.UNCOVERED_TEXT)
+
+            # 태양광 — 어느 지역 값으로 셈했는지 밝히고 월별 그림을 답니다.
+            # **다른 칸은 움직이지 않습니다**(작업지시 14 ⑤).
+            st.caption(solar.label(r.solar_place)
+                       + (" " + solar.NO_PLACE if _no_place else "")
+                       + " " + solar.CAVEAT)
+            _solar_month_block(r.solar_kw, r.solar_place, data["elec"])
 
             st.info(f"이 값은 **{picked.jibunAddr}** 한 지번에 잡힌 것만 더한 것입니다. "
                     "사찰 전체가 아닐 수 있습니다. "
@@ -1058,7 +1130,9 @@ if picked and st.session_state.diag:
                 "회피 배출량이 참고로 계산되고 합계에는 넣지 않습니다.</p>",
                 unsafe_allow_html=True)
     s1, s2 = st.columns(2)
-    solar = s1.number_input("발전량 (kWh)", min_value=0.0, value=0.0, step=100.0)
+    # 변수 이름을 `solar` 로 두면 **모듈 `solar` 를 가립니다**(2026-11-03).
+    own_solar_kwh = s1.number_input("발전량 (kWh)", min_value=0.0, value=0.0,
+                                    step=100.0)
     solar_self = s2.number_input("그중 자가소비량 (kWh)", min_value=0.0,
                                  value=0.0, step=100.0)
 
@@ -1124,7 +1198,8 @@ if picked and st.session_state.diag:
                     gas_basis=gas_basis, extra=extra,
                     road_addr=picked.roadAddr, jibun_addr=picked.jibunAddr,
                     route=(picked.raw or {}).get("출처", ""),
-                    solar_kwh=solar, solar_self_kwh=solar_self,
+                    solar_kwh=own_solar_kwh, solar_self_kwh=solar_self,
+                    solar_place=_solar_place_for_excel(),
                     sources=_srcs, merge_basis=_basis,
                     energy_code=(st.session_state.diag[0].get("code", "")
                                  if st.session_state.get("diag") else ""))

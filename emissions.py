@@ -20,6 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Tuple
 
+import solar
+
 MJ_PER_KWH = 3.6
 
 
@@ -172,11 +174,15 @@ PER_CAPITA: Dict[int, float] = {
     2023: 13.7,
 }
 
-# 일평균 발전시간.
+# 일평균 발전시간 — **계산에는 쓰지 않습니다**(2026-11-03, 작업지시 14).
 #
-# **「법문사 42kW 실측」이라고 적어 두었던 것은 틀렸습니다**(2026-11-03).
-# 법문사 실측은 48,313 kWh / 42.42 kW / 365 = 하루 약 3.1시간입니다.
-# 3.5 는 「탄소중립 첫걸음 워크시트」의 관례값입니다.
+# 3.5 는 「탄소중립 첫걸음 워크시트」의 관례값입니다(손 계산용). 실측
+# 전국 평균 3.34시간보다 **약 5% 높습니다.** 「법문사 42kW 실측」이라고
+# 적어 두었던 것은 틀린 말이었습니다 - 법문사 실측은 48,313 kWh /
+# 42.42 kW / 365 = 하루 약 3.1시간입니다.
+#
+# 지금은 `solar.py` 가 **시도·월별 실측값**으로 셈합니다. 시도 차이가
+# 20%(대전 2.99 ~ 전북 3.55), 달 차이는 두 배가 넘습니다.
 SOLAR_HOURS = 3.5
 WATER_EF = 0.332             # kgCO2eq/톤. Scope 3 이라 템플릿에 없음
 
@@ -306,9 +312,15 @@ def gas_t(kwh: float, basis: str = GAS_BASIS_DEFAULT,
     return burn("도시가스/LNG", gas_kwh_to_nm3(kwh, basis)).total_t(gwp)
 
 
-def solar_capacity_kw(elec_kwh: float) -> float:
-    """워크시트 산식: 전기사용량 / 365 / 3.5"""
-    return float(elec_kwh or 0) / 365 / SOLAR_HOURS
+def solar_capacity_kw(elec_kwh: float, place: str = "") -> float:
+    """연간 전기를 메우는 태양광 용량(kW).
+
+    `place` 는 `solar.place_of(주소)` 가 찾은 시도 이름입니다. 비우면
+    **전국 평균**으로 셈합니다. 옛 산식(전기 / 365 / 3.5)은 더 쓰지
+    않습니다 - 시도 차이가 20% 라 한 값으로 묶으면 대전 쪽 절이 필요한
+    용량보다 작게 나옵니다.
+    """
+    return solar.capacity_kw(elec_kwh, place or solar.NATION)
 
 
 # ── 개략 진단 (1~3단계 화면) ─────────────────────────────────
@@ -338,6 +350,8 @@ class Rough:
     # 국민 환산에 쓴 1인당 값과 **그 값의 연도**. 화면에 함께 적습니다.
     per_capita_t: float = 0.0
     per_capita_year: int = 0
+    # 태양광을 어느 시도 값으로 셈했는지. 화면에 밝힙니다.
+    solar_place: str = ""
 
 
 def diagnose(
@@ -348,6 +362,7 @@ def diagnose(
     gas_basis: str = GAS_BASIS_DEFAULT,
     gwp: str = GWP_DEFAULT,
     year: Optional[int] = None,
+    place: str = "",
 ) -> Rough:
     e = power_t(elec_kwh, elec_basis)
     nm3 = gas_kwh_to_nm3(gas_kwh, gas_basis)
@@ -366,7 +381,8 @@ def diagnose(
         people=sub / cap,                     # 공개자료 기준
         per_capita_t=cap,
         per_capita_year=cap_year,
-        solar_kw=solar_capacity_kw(elec_kwh),
+        solar_kw=solar_capacity_kw(elec_kwh, place),
+        solar_place=place or solar.NATION,
         elec_basis=elec_basis,
         elec_ef=ELEC_EF[elec_basis],
         gas_basis=gas_basis,

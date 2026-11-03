@@ -200,7 +200,14 @@ def main() -> int:
     ok("전기는 소비단 0.4173", abs(r.elec_t - 200000 * 0.4173 / 1000) < 1e-9)
     ok("국민 환산은 그 해 1인당 값으로", abs(r.people - r.total_t / r.per_capita_t) < 1e-9)
     ok("1인당 값에 연도가 함께 온다", r.per_capita_year in em.PER_CAPITA)
-    ok("태양광 = 전기 / 365 / 3.5", abs(r.solar_kw - 200000 / 365 / 3.5) < 1e-9)
+    # 태양광은 시도·월별 실측값으로(작업지시 14). 3.5시간은 계산에서 뺐습니다.
+    import solar as _sol
+    ok("태양광 = 전기 / 그 시도 1kW 연간 발전",
+       abs(r.solar_kw - 200000 / _sol.annual_kwh_per_kw(r.solar_place)) < 1e-9)
+    ok("시도를 못 찾으면 전국 평균 + 표시",
+       r.solar_place == _sol.NATION and r.solar_nation)
+    ok("월 발전 열두 달", len(r.solar_month) == 12 and all(x > 0 for x in r.solar_month))
+    ok("겨울이 여름보다 적다", r.solar_month[0] < r.solar_month[4])
 
     # 연료 양을 적었으면 그 난방 수단도 고른 것으로 봅니다(작업지시 13 ④).
     # 전에는 체크 없이 드럼 수만 적으면 계절비로 넘어가 「전기 난방형
@@ -218,6 +225,30 @@ def main() -> int:
     ok("먼저 해 볼 일 세 가지, 1번은 계약전력",
        len(r.todo) == 3 and "계약전력" in r.todo[0])
     ok("한계 문구 고정", sc.LIMIT_TEXT in r.notes)
+
+    # ── 태양광 시도 맞추기 (작업지시 14 ⑥) ──
+    import solar as S
+    ok("옛 이름과 새 이름이 같은 값",
+       S.resolve("강원도 강릉시 교동")[0] == S.resolve("강원특별자치도 강릉시 교동")[0]
+       == "강원도"
+       and S.resolve("전라북도 김제시")[0] == S.resolve("전북특별자치도 김제시")[0]
+       == "전라북도")
+    ok("광역시·특별시·세종",
+       S.resolve("서울특별시 강남구")[0] == "서울"
+       and S.resolve("세종특별자치시 조치원읍")[0] == "세종"
+       and S.resolve("제주특별자치도 서귀포시")[0] == "제주도")
+    ok("통합시는 시군구로 가름",
+       S.resolve("전남광주통합특별시 동구 운림동")[0] == "광주"
+       and S.resolve("전남광주통합특별시 구례군 마산면")[0] == "전라남도")
+    ok("시도를 못 찾으면 전국 평균",
+       S.resolve("어디인지 모를 곳 123") == (S.NATION, True))
+    ok("같은 전기면 대전이 전북보다 용량이 크다",
+       S.capacity_kw(25699, "대전") > S.capacity_kw(25699, "전라북도"),
+       f"{S.capacity_kw(25699, '대전'):.1f} vs {S.capacity_kw(25699, '전라북도'):.1f}")
+    ok("표에 17개 시도 + 전국 평균", len(S.HOURS) == 18)
+    ok("연간 발전은 달 날수로 가중",
+       abs(S.annual_kwh_per_kw("충청남도")
+           - sum(h * d for h, d in zip(S.hours_of("충청남도"), S._DAYS))) < 1e-9)
     r2 = sc.diagnose("시험사", "", None, sc.MODE_BILL, 10000, 0, [sc.HEAT_KERO])
     ok("등유를 골랐는데 양이 없으면 그렇다고 밝힘",
        any("양을 넣지 않은" in n for r_ in [r2] for n in r_.notes))

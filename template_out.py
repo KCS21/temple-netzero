@@ -21,6 +21,7 @@ from typing import List, Optional, Sequence, Tuple
 from openpyxl import load_workbook
 
 import emissions as em
+import solar
 
 # 지수광풍판 — 작업지시 06 으로 개정한 서식입니다.
 # 구판은 `..._구판.xlsx` 로 남겨 두었습니다(옛 결과를 다시 볼 일이 있으면).
@@ -36,6 +37,10 @@ SH_SRC = "⑧조회근거"
 SRC_ROWS = range(14, 20)      # ⑧ 의 지번별 줄 (6칸)
 BIO_COL = 20                  # ③ 의 생물기원 CO2 열 (T). 합계에 안 들어갑니다
 SOLAR_ROWS = (21, 22)         # ⑤ 의 자가 태양광 발전량 / 자가소비량
+# ⑤ 의 태양광 필요용량 칸 (작업지시 14). 지역·시간·연간발전·용량 네 줄과
+# 그 아래 열두 달 표. 비워 두면 도구가 아무것도 쓰지 않습니다.
+SOLAR_NEED_ROWS = (27, 28, 29, 30)
+SOLAR_MONTH_ROW = 35
 
 FIXED_ROWS = range(8, 16)     # 8칸
 MOBILE_ROWS = range(8, 15)    # 7칸
@@ -129,6 +134,7 @@ def fill(
     solar_self_kwh: float = 0.0,
     sources: Sequence[dict] = (),
     energy_code: str = "",
+    solar_place: str = "",
     merge_basis: str = "",
     route: str = "",
 ) -> str:
@@ -164,6 +170,17 @@ def fill(
     ws["D10"] = float(renewable_kwh or 0)
     ws.cell(SOLAR_ROWS[0], 4).value = float(solar_kwh or 0) or None
     ws.cell(SOLAR_ROWS[1], 4).value = float(solar_self_kwh or 0) or None
+
+    # 태양광 필요용량 — 그 시도의 실측 발전시간으로(작업지시 14).
+    if solar_place:
+        need = solar.capacity_kw(elec_kwh, solar_place)
+        ws.cell(SOLAR_NEED_ROWS[0], 4).value = solar_place
+        ws.cell(SOLAR_NEED_ROWS[1], 4).value = round(solar.day_hours(solar_place), 2)
+        ws.cell(SOLAR_NEED_ROWS[2], 4).value = round(
+            solar.annual_kwh_per_kw(solar_place))
+        ws.cell(SOLAR_NEED_ROWS[3], 4).value = round(need, 1)
+        for i, h in enumerate(solar.hours_of(solar_place)):
+            ws.cell(SOLAR_MONTH_ROW, 3 + i).value = round(h, 2)
 
     stamp = dt.date.today().strftime("%Y. %m. %d.")
     if SH_SRC in wb.sheetnames:

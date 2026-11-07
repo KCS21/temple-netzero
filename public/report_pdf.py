@@ -84,7 +84,7 @@ def _winter_line(r) -> str:
     """
     if not r.solar_month or not r.monthly:
         return ""
-    by = {int(str(k)[4:]): float(v or 0) for k, v in r.monthly.items()}
+    by = {sc._month_of(k): float(v or 0) for k, v in r.monthly.items()}
     if len(by) != 12 or not all(by.get(m) for m in range(1, 13)):
         return ""
     return sc.solar.winter_text(r.solar_month,

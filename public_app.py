@@ -25,11 +25,9 @@ import streamlit as st
 
 import bldengy
 import bldrgst
-import juso
-import kakao
 import keys
-import portal
 import region
+import search_ui
 from public import content, report_pdf, selfcheck as sc, sheet
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -38,7 +36,6 @@ NL = chr(10)
 
 PAGES = ("소개", "자가진단", "결과", "컨설팅 요청")
 QUERY_LIMIT = 5          # 한 세션의 자료 조회 횟수 (공공데이터포털 키를 컨설턴트 앱과 함께 씀)
-PER_PAGE = 5
 BUSY_TEXT = "자료 서버가 바쁩니다. 잠시 뒤 다시 시도해 주세요."
 LIMIT_TEXT = "조회를 여러 번 하셨습니다. 잠시 뒤 다시 시도해 주세요."
 
@@ -197,19 +194,18 @@ try:
 except Exception:
     CONFM_KEY, SERVICE_KEY = "", ""
 LOOKUP_ON = bool(CONFM_KEY and SERVICE_KEY)
+KAKAO_KEY = search_ui.kakao_key() if LOOKUP_ON else ""
 SHEET_URL, SHEET_TOKEN = _secret("APPS_SCRIPT_URL"), _secret("APPS_SCRIPT_TOKEN")
 
 BODY, SETTINGS = content.load()
 CONTACT = content.contact_line(SETTINGS)
 
-for k, v in [("nav", PAGES[0]), ("rows", []), ("total", 0), ("kw", ""),
-             ("search_err", ""), ("searched", False), ("picked", None),
+for k, v in [("nav", PAGES[0]), ("picked", None),
              ("result", None), ("queries", 0),
              ("diag_sent", None), ("pdf", None), ("pdf_sig", None),
              ("look_err", ""), ("no_data", ""), ("req_sent", 0),
              ("req_done", None),
-             ("req_msg", None), ("mode", "find"), ("page", 1),
-             ("places", []), ("places_err", "")]:
+             ("req_msg", None), ("mode", "find")]:
     st.session_state.setdefault(k, v)
 
 
@@ -376,59 +372,6 @@ def page_intro():
 
 
 # ═══════════ ② 자가진단 ═══════════
-def _run_search(keyword: str, page: int = 1, keep_places: bool = False):
-    try:
-        rows, total = juso.search(keyword, CONFM_KEY, page=page, per_page=PER_PAGE)
-        err = ""
-    except juso.JusoError as e:
-        rows, total = [], 0
-        err = portal.hide_keys(str(e))
-        # 주소 서버가 응답하지 않으면 지번 직접 입력 칸을 펼쳐 둡니다.
-        st.session_state["open_direct"] = (str(e) == juso.DOWN_TEXT)
-    except Exception:
-        rows, total, err = [], 0, "주소 검색이 잠시 되지 않습니다. 잠시 뒤 다시 찾아 주세요."
-    st.session_state.update(rows=rows, total=total, page=page, kw=keyword,
-                            search_err=err, searched=True, picked=None,
-                            addr_pick=None, look_err="", no_data="")
-    if not keep_places:
-        st.session_state.update(places=[], places_err="", place_pick=None)
-
-
-def _direct_block():
-    """지번을 손으로 넣기 — 컨설턴트 앱 「자세히 — 지번을 직접 넣어 조회하기」와 같은 흐름.
-
-    **접어 둡니다.** 도로명이 없는 지번은 주소 검색에 무엇을 넣어도 안 나옵니다.
-    그 동네를 찾아 행정구역코드만 빌리고 번·지는 갈아 끼웁니다(`juso.sibling`).
-    """
-    with st.expander("지번을 직접 넣기 (주소 검색에 안 나올 때)",
-                     expanded=bool(st.session_state.get("open_direct"))):
-        st.markdown('<p class="jisu-small">고지서나 지도 앱에서 <b>지번을 확인하신 뒤</b> '
-                    "넣어 주세요.</p>", unsafe_allow_html=True)
-        dong = st.text_input("시·군·구와 동·리 이름", key="dj_dong",
-                             placeholder="예: 강릉시 연곡면 삼산리")
-        c1, c2 = st.columns(2)
-        bun = c1.text_input("번 (본번)", key="dj_bun", placeholder="예: 569")
-        ji = c2.text_input("지 (부번) - 없으면 비워 두세요", key="dj_ji",
-                           placeholder="예: 3")
-        if not st.button("이 지번으로 찾기", key="dj_go", width="stretch"):
-            return
-        bun_s, ji_s = str(bun or "").strip(), str(ji or "").strip() or "0"
-        if not (dong or "").strip() or not bun_s.isdigit() or not ji_s.isdigit():
-            st.warning("동·리 이름과 번(숫자)을 넣어 주세요. 지(부번)가 없으면 비워 두세요.")
-            return
-        try:
-            rows, _ = juso.search(dong.strip(), CONFM_KEY, per_page=1)
-        except Exception:
-            rows = []
-        if not rows:
-            st.warning("그 동네를 찾지 못했습니다. 시·군과 동·리 이름을 함께 넣어 보세요. "
-                       "예: 강릉시 연곡면 삼산리")
-            return
-        j = juso.sibling(rows[0], int(bun_s), int(ji_s), inherit_name=False)
-        st.session_state.update(picked=j, look_err="", no_data="")
-        st.rerun()
-
-
 @st.cache_data(ttl=86400, show_spinner=False)
 def _purposes(sgg, bjd, bun, ji, plat):
     """그 지번 건물들의 주용도. 하루 동안 다시 씁니다."""
@@ -527,107 +470,17 @@ def page_check():
         _bill_block()
 
 
-def _kakao_key() -> str:
-    """카카오 키. **어떤 오류든 삼키고 빈 문자열**(컨설턴트 앱 `_kakao_key` 와 같은 까닭)."""
-    try:
-        return keys.kakao()
-    except Exception:
-        return ""
-
-
-KAKAO_KEY = _kakao_key() if LOOKUP_ON else ""
-
-
-def _is_name(kw: str) -> bool:
-    """숫자가 없으면 절 이름으로 찾는 것으로 봅니다. 「구산동 314」는 주소."""
-    return not any(c.isdigit() for c in (kw or ""))
-
-
-def _map_search(kw: str):
-    """지도에서 절 이름 찾기. 결과는 **화면에만** 두고 저장하지 않습니다(CLAUDE.md 7장)."""
-    st.session_state.update(places=[], places_err="", place_pick=None)
-    if not (KAKAO_KEY and _is_name(kw)):
-        return
-    try:
-        st.session_state.places = kakao.search(kw, KAKAO_KEY)[0]
-    except Exception:
-        # 지도 칸은 어떤 오류가 나도 거기서 끝냅니다. 주소 검색은 그대로 돕니다.
-        st.session_state.places_err = ("지도 검색이 잠시 되지 않습니다. "
-                                       "아래 주소 검색 결과를 봐 주세요.")
-
-
-def _pick_row():
-    i = st.session_state.get("addr_pick")
-    rows = st.session_state.rows
-    if i is not None and i < len(rows):
-        st.session_state.update(picked=rows[i], look_err="", no_data="")
-
-
-def _pick_place():
-    i = st.session_state.get("place_pick")
-    places = st.session_state.get("places") or []
-    if i is None or i >= len(places):
-        return
-    # 고른 곳을 도로명주소로 **다시** 찾습니다. 그 결과만 씁니다.
-    _run_search(places[i].search_key, keep_places=True)
-
-
-def _place_label(pl) -> str:
-    return f"{pl.name}  ·  {pl.jibun or pl.road or '주소 없음'}"
+def _clear_after_pick():
+    """고른 주소가 바뀌면 그 주소에 딸린 안내를 비웁니다."""
+    st.session_state.update(look_err="", no_data="")
 
 
 def _find_block():
-    st.markdown("#### 1. 주소 또는 절 이름으로 찾기")
-    st.markdown('<p class="jisu-small">같은 이름의 절이 많습니다. <b>시·군 이름을 함께</b> '
-                "넣으면 잘 찾아집니다. 예: 원오사 양주</p>", unsafe_allow_html=True)
-    with st.form("search"):
-        kw = st.text_input("주소 또는 절 이름", value=st.session_state.kw,
-                           placeholder="예: 구산동 314  또는  원오사 양주")
-        go_search = st.form_submit_button("찾기", type="primary", width="stretch")
-    if go_search:
-        _map_search(kw)
-        _run_search(kw, keep_places=True)
-
-    # ── 지도 결과 (이름으로 찾을 때 먼저) ──
-    places = st.session_state.get("places") or []
-    if st.session_state.get("places_err"):
-        st.info(st.session_state.places_err)
-    if places:
-        st.markdown(f"**지도에서 {len(places)}곳**을 찾았습니다. 우리 절을 고르시면 "
-                    "그 주소로 다시 찾습니다.")
-        st.radio("지도 결과", list(range(len(places))), key="place_pick",
-                 format_func=lambda k: _place_label(places[k]), index=None,
-                 label_visibility="collapsed", on_change=_pick_place)
-
-    if st.session_state.search_err:
-        st.warning(st.session_state.search_err)
-    rows = st.session_state.rows
-    if st.session_state.searched and not rows and not st.session_state.search_err:
-        st.warning("주소 검색에서는 찾지 못했습니다. 동 이름과 번지로 다시 찾아 보세요. "
-                   "예: 은평구 구산동 314")
-        st.info("절 이름은 **건물 이름이 등록된 절만** 주소 검색에 나옵니다. "
-                "찾아지지 않으면 아래 「지번을 직접 넣기」나, 위의 "
-                "**「고지서 숫자로 직접 넣기」**를 골라 주세요.")
-    if rows:
-        total, page = st.session_state.total, st.session_state.page
-        last = max(1, (total + PER_PAGE - 1) // PER_PAGE)
-        st.markdown(f"**주소 검색 {total:,}건** 중 {page}쪽입니다. 우리 절을 골라 주세요.")
-        st.radio("주소 고르기", list(range(len(rows))), key="addr_pick",
-                 format_func=lambda k: rows[k].label(), index=None,
-                 label_visibility="collapsed", on_change=_pick_row)
-        c1, c2, c3 = st.columns(3)
-        if page > 1:
-            c1.button("앞으로", key="pg_prev", width="stretch",
-                      on_click=_run_search, args=(st.session_state.kw, page - 1, True))
-        if page < last:
-            c2.button("더 보기", key="pg_next", width="stretch",
-                      on_click=_run_search, args=(st.session_state.kw, page + 1, True))
-        kw_now = (st.session_state.kw or "").rstrip()
-        if not any(r.is_mountain for r in rows) and not kw_now.endswith("산"):
-            # 산중 사찰은 산 지번이 뒤쪽 쪽수에 묻히는 일이 많습니다.
-            c3.button("산 지번만 찾기", key="mt_go", width="stretch",
-                      on_click=_run_search, args=(kw_now + " 산", 1, True))
-    _direct_block()
+    # 찾기 칸은 컨설턴트 앱과 **같은 것**을 씁니다(search_ui.py).
+    search_ui.Finder(CONFM_KEY, KAKAO_KEY, on_pick=_clear_after_pick,
+                     css="jisu-small",
+                     other_way="위의 **「고지서 숫자로 직접 넣기」**"
+                     ).show("#### 1. 주소 또는 절 이름으로 찾기")
 
     j = st.session_state.picked
     if j is None:
@@ -636,9 +489,7 @@ def _find_block():
     st.markdown(f"**고른 주소:** {j.jibunAddr}")
     if _odd_place(j):
         st.warning(sc.NOT_TEMPLE_TEXT)
-    if j.name_hit:
-        st.warning("이름으로 찾은 주소입니다. **주소가 맞는지 확인해 주세요.** "
-                   "같은 이름의 다른 절이 흔합니다.")
+    search_ui.name_warning(j)
     name = st.text_input("절 이름 (결과지에 찍힙니다)", value=j.bdNm or "",
                          key=f"name_{j.jibunAddr}")
 
@@ -744,7 +595,9 @@ def _solar_month_chart(r) -> None:
             for i in range(12)]
     use = []
     if r.monthly:
-        by = {int(str(k)[4:]): float(v or 0) for k, v in r.monthly.items()}
+        # 조회는 「202501」, 고지서 입력은 「01」 — 둘 다 읽습니다.
+        # `str(k)[4:]` 로 떼면 고지서 쪽이 빈 글자가 되어 결과 화면이 죽었습니다.
+        by = {sc._month_of(k): float(v or 0) for k, v in r.monthly.items()}
         if len(by) == 12 and all(by.get(m) for m in range(1, 13)):
             use = [by[m] for m in range(1, 13)]
             rows += [{"달": months[i], "구분": "우리 절 전기", "kWh": use[i]}
@@ -768,7 +621,14 @@ def _solar_month_chart(r) -> None:
             color=sc.solar.BAR_COLOR).encode(
             y="kWh:Q", tooltip=["달", "구분", "kWh"])
         chart = bars + line
-    st.altair_chart(chart.properties(height=190), width="stretch")
+    st.altair_chart(chart.properties(height=sc.solar.CHART_HEIGHT), width="stretch")
+    # 그림 바로 아래 해설 — 두 앱이 같은 문장(solar.explain)
+    for line in sc.solar.explain(
+            r.solar_kw, r.solar_place, r.solar_nation,
+            r.year if r.mode == sc.MODE_LOOKUP else None, has_bars=bool(use)):
+        st.markdown('<p class="jisu-small">'
+                    + line.replace("**", "<b>", 1).replace("**", "</b>", 1)
+                    + "</p>", unsafe_allow_html=True)
 
     if use:
         st.markdown(

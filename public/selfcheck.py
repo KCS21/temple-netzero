@@ -70,7 +70,7 @@ ACTION_BY_TYPE = {
 }
 ACTION_BY_TYPE[TYPE_ELEC_EST] = ACTION_BY_TYPE[TYPE_ELEC]
 ACTION_BY_TYPE[TYPE_FUEL_EST] = ACTION_BY_TYPE[TYPE_FUEL]
-ACTION_LAST = ("줄이고 남은 전기는 태양광으로. 부속건물 지붕은 전기요금을 아끼는 "
+ACTION_LAST = ("줄이고도 모자라는 전기는 태양광으로. 부속건물 지붕은 전기요금을 아끼는 "
                "자가소비형, 넓은 주차장·유휴부지는 투자 부담 없이 임대료를 받는 "
                "부지임대형이 있습니다.")
 

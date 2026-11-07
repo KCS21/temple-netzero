@@ -99,6 +99,8 @@ def _screen_tests():
         calls.append((kw, page))
         n = 12 if "많이" in kw else 1
         rows = fake_rows(n)[(page - 1) * per_page: page * per_page]
+        for r in rows:          # 진짜 juso.search 처럼 건물명이 맞으면 표시
+            r.name_hit = r.bdNm in kw
         return rows, n
 
     saved = (keys.load, keys.kakao, juso.search, kakao.search, bldrgst.fetch_dongs)
@@ -144,6 +146,63 @@ def _screen_tests():
         ok("지번 직접 넣기 칸이 있음 (접어 둠)",
            any("지번을 직접 넣기" in e.label for e in at.expander))
         ok("화면 오류 없음", not at.exception)
+
+        # ── 컨설턴트 앱도 같은 찾기 칸 (2026-11-07, search_ui.py) ──
+        consult = os.path.join(HERE, "app.py")
+
+        def run_c(kw, kakao_key=""):
+            keys.kakao = lambda *a, **k: kakao_key
+            at = AppTest.from_file(consult, default_timeout=60).run()
+            at.text_input[0].set_value(kw)
+            at.button(key="FormSubmitter:search-찾기").click()
+            return at.run()
+
+        map_calls.clear()
+        at = run_c("시험사", "가짜카카오키")
+        ok("컨설턴트 앱 - 이름 검색이면 지도 결과를 먼저",
+           map_calls == ["시험사"] and [r for r in at.radio if r.label == "지도 결과"])
+        at = run_c("시험사")
+        ok("컨설턴트 앱 - 키가 없으면 지도 칸 숨김",
+           not [r for r in at.radio if r.label == "지도 결과"])
+        ok("컨설턴트 앱 - 「(이름으로 찾음)」 표시",
+           any("(이름으로 찾음)" in o for r in at.radio if r.label == "주소 고르기"
+               for o in r.options))
+        at.radio(key="srch_addr_pick").set_value(0)
+        at.run()
+        ok("컨설턴트 앱 - 고르면 picked 가 그 줄",
+           at.session_state["picked"] is not None
+           and at.session_state["picked"].jibunAddr == "어느군 어느면 어느리 1")
+        at = run_c("많이 나오는 절")
+        ok("컨설턴트 앱 - 더 보기·산 지번 단추",
+           {"더 보기", "산 지번만 찾기"} <= {b.label for b in at.button})
+        ok("컨설턴트 앱 - 지번 직접 넣기 칸(공개 앱과 같은 이름)",
+           any("지번을 직접 넣기" in e.label for e in at.expander))
+        at.text_input(key="dj_dong").set_value("어느군 어느면 어느리")
+        at.text_input(key="dj_bun").set_value("569")
+        at.button(key="dj_go").click()
+        at.run()
+        pk = at.session_state["picked"]
+        ok("컨설턴트 앱 - 지번 직접 넣기 -> 569, 건물명은 물려주지 않음",
+           pk is not None and pk.lnbrMnnm == "569" and pk.bdNm == "")
+        ok("컨설턴트 앱 화면 오류 없음", not at.exception, str(at.exception))
+
+        def down(kw, key, **_k):
+            raise juso.JusoError(juso.DOWN_TEXT)
+        juso.search = down
+        for name, path, pre in (("공개", app, True), ("컨설턴트", consult, False)):
+            keys.kakao = lambda *a, **k: ""
+            at = AppTest.from_file(path, default_timeout=60).run()
+            if pre:
+                at.session_state["nav"] = "자가진단"
+                at.run()
+            at.text_input[0].set_value("어느리 1")
+            at.button(key="FormSubmitter:search-찾기").click()
+            at.run()
+            ex = [e for e in at.expander if "지번을 직접 넣기" in e.label]
+            ok(f"{name} 앱 - 주소 서버가 안 되면 지번 직접 칸이 펼쳐짐",
+               ex and ex[0].proto.expanded
+               and any(juso.DOWN_TEXT[:15] in w.value for w in at.warning))
+        juso.search = fake_search
     finally:
         keys.load, keys.kakao, juso.search, kakao.search, bldrgst.fetch_dongs = saved
 
@@ -341,7 +400,7 @@ def main() -> int:
     ok("그때 남는 양 = 등유 + LPG",
        abs((_fuel.total_t - _fuel.elec_t) - (_fuel.kero_t + _fuel.lpg_t)) < 1e-9)
 
-    ok("감축 한 줄 — 남는 양은 합계에서 전기만 뺀 것",
+    ok("감축 한 줄 - 남는 양은 합계에서 전기만 뺀 것",
        "12.3 t → 2.3 t" in S.cut_text(12.3, 10.0).replace("**", ""),
        S.cut_text(12.3, 10.0))
 
@@ -496,9 +555,45 @@ def main() -> int:
     print("\n[9] 주소 찾기 화면 (가짜 검색, 인터넷 안 씀)")
     _screen_tests()
 
+    print("\n[12] 월별 그림 해설 · 크기 · 문구 (2026-11-07)")
+    import solar
+    cases = (
+        ("원오사(충남)", "충청남도 계룡시 엄사면 엄사리 375-3", "충청남도 태양광 발전소들이"),
+        ("강원 주소", "강원특별자치도 평창군 진부면 동산리 63", "강원특별자치도 태양광 발전소들이"),
+        ("시도 못 찾음", "어느 동네 1", "전국 태양광 발전소들이"),
+    )
+    for name, addr, who in cases:
+        place, nation = solar.resolve(addr)
+        lines = solar.explain(20.54, place, nation, 2025, has_bars=True)
+        first = lines[0]
+        ok(f"{name} -> 「{who}」", who in first, first)
+        ok(f"{name} - 용량 소수 한 자리 · 기간 · 고정 문장",
+           "20.5 kW(1년 전기를 다 채우는 크기)" in first
+           and f"{solar.PERIOD}년에 실제로 낸 발전량" in first
+           and first.endswith("지붕 방향과 그늘은 반영되지 않았습니다."), first)
+        ok(f"{name} - 「(전국 평균)」은 시도를 못 찾을 때만",
+           ("(전국 평균)" in first) == nation)
+        ok(f"{name} - 초록 막대 줄과 자료연도",
+           len(lines) == 2 and lines[1].endswith("(2025년 공개 자료)."))
+    place, nation = solar.resolve("충청남도 계룡시 엄사면 엄사리 375-3")
+    ok("월별 전기가 없으면 초록 막대 줄을 뺌",
+       len(solar.explain(10, place, nation, 2025, has_bars=False)) == 1)
+    ok("그림 세로 300 (전 190~200 의 1.5배)", solar.CHART_HEIGHT == 300)
+    for f in ("app.py", "public_app.py"):
+        src = io.open(os.path.join(HERE, f), encoding="utf-8").read()
+        ok(f"{f} - 그림 높이와 해설을 solar 에서 가져옴",
+           "CHART_HEIGHT" in src and "explain(" in src
+           and "height=190" not in src and "height=200)" not in src)
+        ok(f"{f} - 찾기 칸은 search_ui 를 씀", "search_ui.Finder(" in src)
+    ok("문구 - 「줄이고도 모자라는 전기」", "줄이고도 모자라는 전기" in sc.ACTION_LAST
+       and "줄이고도 모자라는 전기" in io.open(content.INTRO, encoding="utf-8").read())
+    m = {f"{i:02d}": 10000 for i in range(1, 13)}
+    rb = sc.diagnose("고지서사", "충청남도 계룡시", None, sc.MODE_BILL, 120000, monthly=m)
+    ok("고지서 월별(「01」꼴)도 결과 PDF 가 만들어짐", report_pdf.build(rb)[:5] == b"%PDF-")
+
     print()
     print()
-    print("  [9] 컨설팅 요청 — 보낸 뒤 화면")
+    print("  [9] 컨설팅 요청 - 보낸 뒤 화면")
     test_request_flow(ok)
 
     print(LINE)

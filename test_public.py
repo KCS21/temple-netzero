@@ -238,8 +238,9 @@ def test_request_flow(ok) -> None:
         msg = " ".join(s.value for s in at.success)
         ok("보낸 뒤 접수 메시지", "요청이 접수되었습니다" in msg, msg)
         ok("절 이름이 메시지에", "시험사" in msg)
-        ok("연락처는 끝 네 자리만", "…4847" in msg and "010-1234-4847" not in msg,
-           msg)
+        ok("하이픈 있는 전화는 그대로 전체", "010-1234-4847" in msg, msg)
+        ok("틀렸을 때 안내 한 줄",
+           "연락처가 틀렸다면 「새 요청 쓰기」로 다시 보내 주세요." in msg, msg)
         ok("보내기 단추가 사라짐",
            not any("보내기" in (b.label or "") for b in at.button))
         ok("입력 칸이 잠김",
@@ -254,6 +255,45 @@ def test_request_flow(ok) -> None:
         ok("새 요청 쓰기를 누르면 칸이 비고 단추가 돌아옴",
            at.text_input(key="req_name").value == ""
            and any("보내기" in (b.label or "") for b in at.button))
+
+        def send(contact):
+            at = AppTest.from_file(os.path.join(HERE, "public_app.py"),
+                                   default_timeout=60).run()
+            at.session_state["nav"] = "컨설팅 요청"
+            at.session_state["result"] = sc.diagnose(
+                "시험사", "어딘가 1", 2025, sc.MODE_BILL, 50000)
+            at.run()
+            for k, v in (("req_name", "시험사"), ("req_addr", "어딘가 1"),
+                         ("req_person", "아무개"), ("req_contact", contact)):
+                at.text_input(key=k).set_value(v)
+            at.checkbox(key="req_agree").check()
+            at.run()
+            [b for b in at.button if "보내기" in (b.label or "")][0].click()
+            return at.run()
+
+        at = send("01042834847")
+        ok("숫자만 든 전화 -> 하이픈을 넣어 전체",
+           "010-4283-4847" in at.success[0].value, at.success[0].value)
+        at2 = send("abc@def.kr")
+        ok("이메일은 그대로", "abc@def.kr" in at2.success[0].value)
+        at2 = send("a_b_c@def.kr")
+        ok("이메일의 밑줄이 글자 꾸밈으로 빠지지 않음",
+           "a\\_b\\_c@def.kr" in at2.success[0].value, at2.success[0].value)
+        r0 = at.session_state["result"]
+        at.button(key="req_home").click()
+        at.run()
+        ok("처음으로 -> 소개 화면", at.session_state["nav"] == "소개"
+           and any("우리는" in m.value for m in at.markdown), str(at.exception))
+        ok("처음으로 -> 맨 위로 올리는 조각이 그려짐",
+           "scrollTop=0" in str([e.proto for e in at.get("iframe")]),
+           str(at.get("iframe")))
+        ok("처음으로 -> 진단 결과는 그대로", at.session_state["result"] is r0)
+        at.session_state["nav"] = "컨설팅 요청"
+        at.run()
+        ok("처음으로 뒤 요청 쪽은 새 양식",
+           at.text_input(key="req_name").value == ""
+           and any("보내기" in (b.label or "") for b in at.button))
+        ok("화면 오류 없음", not at.exception, str(at.exception))
     finally:
         psheet.send_request_detail = real
 
@@ -514,6 +554,11 @@ def main() -> int:
     ok("ping 토큰 틀림 -> 코드 token",
        sheet.ping("https://x", "t", FakePost({"ok": False, "err": "token"}))["code"] == "token")
     ok("주소가 비면 ping 은 보내지 않음", sheet.ping("", "t")["code"] == "off")
+
+    for v, want in (("01042834847", "010-4283-4847"), ("0212345678", "02-1234-5678"),
+                    ("021234567", "02-123-4567"), ("0311234567", "031-123-4567"),
+                    ("010-4283-4847", "010-4283-4847"), ("abc@def.kr", "abc@def.kr")):
+        ok(f"연락처 표시 {v} -> {want}", sheet.show_contact(v) == want)
 
     print("\n[6] 소개글 설정 칸")
     body, st_ = content.parse(io.open(content.INTRO, encoding="utf-8").read())

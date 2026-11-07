@@ -22,6 +22,7 @@ import os
 import threading
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 import bldengy
 import bldrgst
@@ -143,6 +144,10 @@ st.markdown(f"""
   .st-key-band {{ background: {MIST}; border-radius: 16px; padding: 18px 18px 6px;
       margin: 10px 0 14px; }}
   .st-key-band img, .st-key-row1 img, .st-key-row2 img {{ border-radius: 12px; }}
+
+  /* 접수 뒤 단추 둘 - 휴대폰에서도 나란히 */
+  .st-key-done_btns [data-testid="stHorizontalBlock"] {{ flex-wrap: nowrap !important; }}
+  .st-key-done_btns [data-testid="stColumn"] {{ min-width: 0 !important; }}
 
   /* 자동 입력 막기용 칸. 사람에게는 보이지 않습니다 */
   .st-key-hp {{ position: absolute !important; left: -10000px !important;
@@ -726,37 +731,45 @@ def page_result():
 
 
 # ═══════════ ④ 컨설팅 요청 ═══════════
-def _tail4(contact: str) -> str:
-    """연락처 끝 네 자리(또는 이메일 앞 두 글자). **전체는 보이지 않습니다.**"""
-    t = "".join(ch for ch in str(contact or "") if ch.isdigit())
-    if len(t) >= 4:
-        return "…" + t[-4:]
-    t = str(contact or "").strip()
-    return (t[:2] + "…") if t else ""
+def _md_plain(text: str) -> str:
+    """접수 문구에 넣을 값. 이메일의 `_` 등이 글자 꾸밈으로 읽혀 빠지지 않게."""
+    return "".join("\\" + c if c in "\\`*_~[]" else c for c in str(text or ""))
+
+
+def _reset_request() -> None:
+    """요청 양식만 처음으로. **진단 결과(`result`)는 건드리지 않습니다.**"""
+    for k in ("req_name", "req_addr", "req_person", "req_contact",
+              "req_text", "req_hp", "req_agree"):
+        st.session_state.pop(k, None)
+    st.session_state.req_msg = None
+    st.session_state.req_done = None
+
+
+def _to_home() -> None:
+    _reset_request()
+    go("소개", scroll_top=True)
 
 
 def _request_done() -> None:
     """보낸 뒤 화면 — 보내기 단추가 있던 자리에 접수 메시지만."""
     done = st.session_state.get("req_done") or {}
     who = (done.get("name") or "").strip()
-    tail = done.get("tail") or ""
-    whom = " · ".join(x for x in (who, tail) if x)
+    whom = " · ".join(_md_plain(x) for x in (who, done.get("contact")) if x)
     st.success("요청이 접수되었습니다."
                + (f"  {whom} 로 지수광풍이 연락드리겠습니다."
-                  if whom else "  지수광풍이 연락드리겠습니다."))
+                  if whom else "  지수광풍이 연락드리겠습니다.")
+               + NL + NL + "연락처가 틀렸다면 「새 요청 쓰기」로 다시 보내 주세요.")
     # 화면을 이 자리로 내려 줍니다. 위에 그대로 두면 긴 폼에 가려
     # 접수됐는지 모르고 한 번 더 누르게 됩니다.
     st.markdown('<div id="jisu-done"></div>'
                 '<script>document.getElementById("jisu-done")'
                 '?.scrollIntoView({behavior:"smooth",block:"center"});</script>',
                 unsafe_allow_html=True)
-    if st.button("새 요청 쓰기", width="stretch"):
-        for k in ("req_name", "req_addr", "req_person", "req_contact",
-                  "req_text", "req_hp", "req_agree"):
-            st.session_state.pop(k, None)
-        st.session_state.req_msg = None
-        st.session_state.req_done = None
-        st.rerun()
+    with st.container(key="done_btns"):
+        c1, c2 = st.columns(2)
+        c1.button("새 요청 쓰기", key="req_new", width="stretch",
+                  on_click=_reset_request)
+        c2.button("처음으로", key="req_home", width="stretch", on_click=_to_home)
 
 
 def page_request():
@@ -814,9 +827,10 @@ def page_request():
             # 자동 입력은 성공처럼 보여 줍니다. 막혔다는 것을 알려 줄 까닭이 없습니다.
             st.session_state.req_sent += 1
             st.session_state.req_msg = "sent"
-            # 접수 문구에 쓸 것만 남깁니다 - **연락처는 끝 네 자리만**.
-            # 화면 너머로 번호가 보이지 않게 하려는 것입니다.
-            st.session_state.req_done = {"name": name, "tail": _tail4(contact)}
+            # 접수 문구에 쓸 것만 남깁니다. 연락처는 **전체**를 보여 줍니다 -
+            # 잘못 적었으면 알아보고 다시 보내게 하려는 것입니다.
+            st.session_state.req_done = {"name": name,
+                                         "contact": sheet.show_contact(contact)}
             st.rerun()
         # 실패하면 입력한 내용은 지우지 않습니다(위젯이 그대로 들고 있습니다).
         st.session_state.req_msg = None
@@ -847,6 +861,25 @@ def _check_block():
             f"{res['verdict']} · 코드 {res['code']} · {res['seconds']}초")
 
 
+def _scroll_top() -> None:
+    """「처음으로」 뒤 맨 위로. 쪽을 바꿔도 스크롤은 그대로 남기 때문입니다.
+
+    `st.markdown` 의 `<script>` 는 돌지 않아 iframe 에서 바깥 화면을 올립니다.
+    못 올려도 쪽은 이미 옮겨졌으니 **어떤 오류든 삼킵니다.**
+    """
+    if not st.session_state.pop("scroll_top", False):
+        return
+    try:
+        components.html(
+            "<script>const d=window.parent.document;const up=()=>{"
+            "for(const q of ['[data-testid=\"stMain\"]','section.main',"
+            "'[data-testid=\"stAppViewContainer\"]']){const e=d.querySelector(q);"
+            "if(e)e.scrollTop=0;}window.parent.scrollTo(0,0);};"
+            "up();setTimeout(up,300);setTimeout(up,1000);</script>", height=0)
+    except Exception:
+        pass
+
+
 {"소개": page_intro, "자가진단": page_check, "결과": page_result,
  "컨설팅 요청": page_request}[st.session_state.nav]()
 _check_block()
@@ -859,3 +892,4 @@ st.markdown(f'<div class="jisu-foot">{"<br>".join(foot)}'
             + (f'<br><span style="font-size:13px;color:#999">판 {VERSION}</span>'
                if VERSION else "")
             + "</div>", unsafe_allow_html=True)
+_scroll_top()

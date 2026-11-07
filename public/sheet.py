@@ -55,6 +55,22 @@ _PHONE = re.compile(r"^[0-9\-]{9,}$")
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
+def show_contact(v: str) -> str:
+    """접수 화면에 보여 줄 연락처. **입력한 그대로 전체**(틀렸는지 알아보도록).
+
+    숫자만 들어온 전화번호만 하이픈을 넣어 읽기 쉽게 합니다
+    (01042834847 -> 010-4283-4847). 하이픈이 있거나 이메일이면 그대로입니다.
+    """
+    v = str(v or "").strip()
+    if not v.isdigit():
+        return v
+    if v.startswith("02") and len(v) in (9, 10):
+        return f"{v[:2]}-{v[2:-4]}-{v[-4:]}"
+    if len(v) in (10, 11):
+        return f"{v[:3]}-{v[3:-4]}-{v[-4:]}"
+    return v
+
+
 def contact_ok(v: str) -> bool:
     """전화(숫자·하이픈 9자 이상) 또는 이메일 형식 중 하나."""
     v = (v or "").strip()

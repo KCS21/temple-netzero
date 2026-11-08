@@ -3,7 +3,7 @@
 더블클릭 실행용 시작 프로그램
 사찰 넷제로 진단 도구 - 불교탄소중립실천단 지수광풍
 
-배치 파일(키확인.bat, 화면열기.bat)이 이 파일을 부릅니다.
+배치 파일(키확인.bat, 화면열기.bat, 수집_돌리기.bat)이 이 파일을 부릅니다.
 한글 안내는 전부 여기서 처리합니다. 배치 파일에 한글을 넣으면
 윈도우 명령창이 파일을 잘못 읽어 깨지기 때문입니다.
 """
@@ -84,10 +84,39 @@ def app() -> int:
     )
 
 
+def collect() -> int:
+    """수집_돌리기.bat - 지원사업·법령 자동 수집. 앱과는 따로 돕니다."""
+    print(BAR)
+    print("  지원사업·법령 자동 수집")
+    print(BAR)
+    print()
+    print(f"  파이썬: {sys.version.split()[0]}")
+    print()
+    if not need("requests"):
+        return 1
+    try:
+        __import__("pypdf")
+    except ImportError:
+        print("  [알림] PDF 첨부를 읽을 'pypdf' 가 없습니다. PDF 는 건너뛰고")
+        print("         보고서의 「자동으로 못 잡은 것」에 적습니다. 설치하시려면")
+        print(f'         "{sys.executable}" -m pip install pypdf')
+        print()
+    print("  다섯 곳을 차례로 훑습니다. 2~3분 걸립니다.")
+    print("  (사이트에 무리가 가지 않게 요청 사이를 1초씩 쉽니다)")
+    print()
+    code = subprocess.call([sys.executable, os.path.join(HERE, "scripts", "지원사업_수집.py")])
+    print()
+    if code == 0:
+        print("  data\\수집 폴더의 「수집보고_날짜.md」를 열어 보십시오.")
+        print("  지원사업.csv 와 지원사업 문서는 고치지 않았습니다(후보만 적음).")
+    return code
+
+
 if __name__ == "__main__":
     what = sys.argv[1] if len(sys.argv) > 1 else "check"
     try:
-        code = app() if what == "app" else check()
+        code = (app() if what == "app" else
+                collect() if what == "collect" else check())
     except KeyboardInterrupt:
         code = 0
     raise SystemExit(code)

@@ -1,0 +1,2013 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="format-detection" content="telephone=no">
+<meta name="description" content="한국에너지공단 재생에너지센터">
+<meta name="keywords" content="한국에너지공단 재생에너지센터">
+<title>재생에너지센터 | 자료실 | 알림/뉴스 | 사업공고</title>
+<link rel="stylesheet" href="/biz/common/css/default.css" />
+<link rel="stylesheet" href="/biz/common/css/default.css" media="print">
+<link href="/biz/common/css/swiper-bundle.min.css" rel="stylesheet" type="text/css" />
+<script src="/biz/common/js/jquery-1.11.0.min.js"></script>
+<script src="/biz/common/js/design.js"></script>
+<script src="/biz/common/js/swiper-bundle.min.js"></script>
+<script src="/biz/common/js/calendar.js"></script>
+<script src="/biz/common/js/plugin/tooltip.js" ></script>
+<script src="/biz/common/js/plugin/utility.js" ></script>
+<script src="/biz/common/js/module/param.js" ></script>
+<script src="/biz/common/js/module/hash.js" ></script>
+<script src="/biz/common/js/module/dynamicTable.js" ></script>
+<script src="/biz/common/js/common.js" ></script>
+<script src="/biz/common/js/input_chk.js" ></script>
+<script src="/biz/common/js/frameLayer.js" ></script>
+<script src="/biz/common/js/jquery-ui.min.js" ></script>
+<script src="/biz/common/js/jquery-ui-i18n.min.js" ></script>	
+<script src="/biz/common/js/jquery.rwdImageMaps.min.js" ></script>	
+<script src="/biz/common/js/cookie.js"></script>
+
+<script>
+
+	/*function fn_tag_in(value){
+			
+		if(value == "1"){
+			
+			$("#searchword").val("설치의무화");			
+			$("#searchform").submit();
+			
+		}else if(value == "2"){
+			
+			$("#searchword").val("주택지원사업");			
+			$("#searchform").submit();
+			
+		}else if(value == "3"){
+			
+			$("#searchword").val("사후관리");			
+			$("#searchform").submit();
+		}
+	}*/
+
+	function fn_tag_in(value){	
+		
+		/*$.ajax({
+			type : "POST", 
+			url : "/biz/search/total_search.do",
+		    type: "GET",
+			data : {"searchword" : value},
+			dataType : "text"
+			success : function(result){
+				location.href="/biz/search/total_search.do";
+			}	
+		});*/
+		location.href ="/biz/search/total_search.do?searchword="+value;
+	};
+	
+	
+	/*function fn_search_submit(){
+		console.log();
+		$("#searchform").submit();
+	}*/
+	
+	function fn_search_submit(){	
+		
+		var searchword = $("#searchword").val();
+		/*$.ajax({
+			type : "POST", 
+			url : "/biz/search/total_search.do",
+			data : {"searchword" : searchword},
+			dataType : "text",
+			success : function(result){
+				location.href="/biz/search/total_search.do";
+			}	
+		});*/
+		location.href ="/biz/search/total_search.do?searchword="+searchword;
+	};
+	
+	function fn_ready(){
+		alert("현재 준비 중입니다.");
+	};
+	
+</script>
+
+</head>
+
+
+<body>
+<div class="skip_cont">
+	<a href="#gnb">주메뉴 바로가기</a>
+	<a href="#content">본문 바로가기</a>
+	<a href="#footer">푸터 바로가기</a>
+</div>
+
+<!--body_wrap-->
+<div class="body_wrap">
+
+	<!--common_wrapper-->
+	<div class="common_wrap">
+		
+		<a href="javascript:;" class="btn_chat"><img src="/biz/images/common/ico_chat.png" alt="챗봇 민원상담 이미지"></a>
+		
+		<!--header_wrapper-->
+		<div class="header_wrap">
+		
+			<!--header_inner-->
+			<div class="header_inner fix">
+				<ul class="header_inner_top fix">
+					<li class="header_top_btn"><a href="https://www.energy.or.kr" target="_blank" title="새창열림">한국에너지공단</a></li>
+					<li class="header_top_num"><span>재생에너지 콜센터 <em>1855-3020</em></span></li>
+					<li class="header_top_num"><span>태양광 피해상담 센터 <em>1670-4260</em></span></li>
+					<li class="header_top_num"><span>고장접수지원센터 <em>1544-0940</em></span></li>
+				</ul>
+				<div class="header_inner_bott">
+					<h1><a href="/biz/main/main.do"><img src="/biz/images/common/logo.png?v=20260918" alt="한국에너지공단 재생에너지센터"></a></h1>
+					
+					<!-- 모바일 상단 버튼 -->
+					<div class="m_header_btn">
+						<a href="javascript:;" class="m_search_btn"><span>검색버튼</span></a>
+						<a href="javascript:;" class="m_menu_btn"><span>모바일 메뉴 버튼</span></a>
+					</div>
+					<!--// 모바일 상단 버튼 -->
+					
+					<!--pc_gnb_wrap-->
+					<div class="gnb_wrap pc_menu_wrap" id="gnb">
+						<ul class="gnb_dep01 fix">
+							<li>
+								<a href="javascript:void(0);">주요사업</a>
+								<div class="gnb_dep02_wrap">
+									<p class="gnb_dep02_tit type01"><span>주요사업</span></p>
+									<ul class="gnb_dep02 fix sty03_03">
+										<li>
+											<a href="javascript:;"><span>재생에너지 보급확대</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/introduce/new_engy/intro_home.do?gubun=A"><span>주택지원</span></a></li>
+												<li><a href="/biz/introduce/new_engy/intro_build.do?gubun=A"><span>건물지원</span></a></li>
+												<li><a href="/biz/introduce/new_engy/intro_cvg.do?gubun=A"><span>융복합지원</span></a></li>
+												<li><a href="/biz/introduce/new_engy/intro_region.do?gubun=A"><span>확대기반조성사업</span></a></li>
+												<li><a href="/biz/introduce/new_engy/intro_solar.do?gubun=A"><span>태양광대여사업</span></a></li>
+												<li><a href="/biz/introduce/new_fin/intro_fin.do?gubun=A"><span>금융지원사업</span></a></li>
+												<!-- <li><a href="/biz/introduce/new_fin/intro_citizen.do?gubun=A"><span>주민참여자금</span></a></li>
+												<li><a href="/biz/introduce/new_fin/intro_green.do?gubun=A"><span>녹색보증사업</span></a></li> -->
+												<li><a href="/biz/introduce/new_engy/inst_conf.do?gubun=A"><span>설치확인</span></a></li>
+												<li><a href="/biz/introduce/new_policy/intro_govinstall.do?gubun=A"><span>공공기관 설치의무화제도</span></a></li>
+												<li><a href="/biz/introduce/new_policy/intro_rfs.do?gubun=A"><span>RFS</span></a></li>
+							                    <li><a href="/biz/introduce/new_policy/intro_rfsSchool.do?gubun=A"><span>학교 RE100</span></a></li>
+												<li><a href="/biz/introduce/new_policy/public_parking.do?gubun=A"><span>공영주차장 재생e 설비 설치의무화제도</span></a></li>
+												<li><a href="/biz/introduce/resco/intro.do?gubun=A"><span>재생에너지종합서비스기업(ReSCO)</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>정책 및 통계</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/introduce/new_policy/plan4tdus.do?gubun=A"><span>재생에너지 기술개발 및 이용·보급 기본계획</span></a></li>
+												<li><a href="/biz/introduce/new_policy/intro_eips.do?gubun=A"><span>전력정보화 및 정책지원사업</span></a></li>
+												<li><a href="/biz/introduce/new_policy/policy_support.do?gubun=A"><span>정책지원</span></a></li>
+												<li><a href="/biz/introduce/new_policy/intro_kre100.do?gubun=A"><span>재생e 사용 확인(K-RE100)</span></a></li>
+												<li><a href="/biz/introduce/new_policy/statistics.do?gubun=A"><span>통계</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>RPS</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/introduce/new_rps/intro_rps.do?gubun=A"><span>RPS</span></a></li>
+												
+												<li><a href="/biz/introduce/new_rps/intro_price.do?gubun=A"><span>고정가격계약 입찰제도</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>대국민 정보제공</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/introduce/new_comm/educontent.do?gubun=A"><span>재생에너지 교육콘텐츠 기획운영</span></a></li>
+												<li><a href="/biz/introduce/new_comm/onestop.do?gubun=A"><span>재생에너지 클라우드 플랫폼</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>재생에너지 산업기반 구축</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/introduce/new_ib/intro_offshorewind_support.do?gubun=A"><span>공공주도 대규모 해상풍력 단지개발 지원</span></a></li>
+												<li><a href="/biz/introduce/new_ib/wfri.do?gubun=A"><span>풍력전후방 인프라구축</span></a></li>
+												<li><a href="/biz/introduce/new_ib/wtci.do?gubun=A"><span>풍력시험인증 인프라구축</span></a></li>
+												<li><a href="/biz/introduce/new_policy/intro_nwppsd.do?gubun=A"><span>풍력발전합동지원반</span></a></li>
+												<!-- <li><a href="/biz/introduce/new_ib/intro_sunshine_dure.do?gubun=A"><span>햇빛두레 사업</span></a></li> -->
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>재생에너지 설비 인증 및 검증</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/introduce/new_cert/intro_standard.do?gubun=B"><span>재생에너지 표준화 및 인증고도화</span></a></li>
+												<li><a href="/biz/introduce/new_cert/intro_energyks.do?gubun=A"><span>재생에너지설비 KS인증</span></a></li>
+												<li><a href="/biz/introduce/new_cert/intro_turbineks.do?gubun=A"><span>중대형 풍력터빈 KS인증</span></a></li>
+												<li><a href="/biz/introduce/new_cert/intro_co2verif.do?gubun=A"><span>탄소검증제</span></a></li>
+												<li><a href="/biz/introduce/new_cert/const_standard.do?gubun=A"><span>재생에너지설비 시공기준</span></a></li>
+												<li><a href="/biz/introduce/new_policy/intro_energysafety.do?gubun=A"><span>재생에너지설비 안전관리</span></a></li>
+											</ul>
+										</li>
+									</ul>
+								</div>
+							</li>
+							<li>
+								<a href="/biz/faq/faq_main.do">FAQ 및 질문하기</a>
+								<div class="gnb_dep02_wrap" style="display: none;">
+									<p class="gnb_dep02_tit type01"><span>FAQ 및 질문하기</span></p>
+									<ul class="gnb_dep02 fix sty03_03">
+										<li>
+											<a href="javascript:;"><span>재생에너지 보급확대</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010100"><span>주택지원</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010200"><span>건물지원</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010300"><span>융복합지원</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010400"><span>확대기반조성사업</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010500"><span>태양광대여사업</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010600"><span>금융지원사업</span></a></li>
+											<!-- 	<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010700"><span>주민참여자금</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010800"><span>녹색보증사업</span></a></li> -->
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010900"><span>설치확인</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A011200"><span>공공기관 설치의무화제도</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A011300"><span>RFS</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A011400"><span>학교 RE100</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A011500"><span>공영주차장 재생e 설비 설치의무화제도</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A011600"><span>재생에너지종합서비스기업(ReSCO)</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>정책 및 통계</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A020000&depth_2=A020100"><span>재생에너지 기술개발 및 이용·보급 기본계획</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A020000&depth_2=A020200"><span>전력정보화 및 정책지원사업</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A020000&depth_2=A020300"><span>정책지원</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A020000&depth_2=A020400"><span>재생e 사용 확인(K-RE100)</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A020000&depth_2=A020500"><span>통계</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>RPS</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A030000&depth_2=A030100"><span>RPS</span></a></li>
+												
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A030000&depth_2=A030300"><span>고정가격계약 입찰제도</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>대국민 정보제공</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A040000&depth_2=A040100"><span>재생에너지 교육콘텐츠 기획운영</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A040000&depth_2=A040200"><span>재생에너지 클라우드 플랫폼</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>재생에너지 산업기반 구축</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A060000&depth_2=A060100"><span>공공주도 대규모 해상풍력 단지개발 지원</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A060000&depth_2=A060200"><span>풍력전후방 인프라구축</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A060000&depth_2=A060300"><span>풍력시험인증 인프라구축</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A060000&depth_2=A060400"><span>풍력발전합동지원반</span></a></li>
+												<!-- <li><a href="/biz/faq/faq_list02.do?depth_1=A060000&depth_2=A060500"><span>햇빛두레 사업</span></a></li> -->
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>재생에너지 설비 인증 및 검증</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A050000&depth_2=A050100"><span>재생에너지 표준화 및 인증고도화</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A050000&depth_2=A050200"><span>재생에너지설비 KS인증</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A050000&depth_2=A050300"><span>중대형 풍력터빈 KS인증</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A050000&depth_2=A050400"><span>탄소검증제</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A050000&depth_2=A050500"><span>재생설비 시공기준</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A050000&depth_2=A050600"><span>재생에너지설비 안전관리</span></a></li>
+											</ul>
+										</li>
+									</ul>
+								</div>
+							</li>
+							<li>
+								<a href="javascript:void(0);">자료실</a>
+								<div class="gnb_dep02_wrap">
+									<p class="gnb_dep02_tit type03"><span>자료실</span></p>
+									<ul class="gnb_dep02 fix sty04">
+										<li>
+											<a href="/biz/pds/notice/list.do"><span>알림/뉴스</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/pds/notice/list.do"><span>공지사항</span></a></li>
+												<li><a href="/biz/pds/businoti/list.do"><span>사업공고</span></a></li>
+												<li><a href="/biz/pds/news/list.do"><span>보도자료</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="/biz/pds/related/list.do"><span>규정</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/pds/related/list.do"><span>규정</span></a></li>
+												<li><a href="/biz/pds/decree/list.do"><span>관계법령</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="/biz/pds/statistic/list.do"><span>통계자료</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/pds/statistic/list.do"><span>통계자료</span></a></li>
+												<li>
+													<a href="/biz/statistics/supply/supply01_01_list.do"><span>보급통계</span></a>
+													<ul class="gnb_dep04">
+														<li><a href="/biz/statistics/supply/supply01_01_list.do"><span>생산량</span></a></li>
+														<li><a href="/biz/statistics/supply/supply02_01_list.do"><span>발전량</span></a></li>
+														<li><a href="/biz/statistics/supply/supply03_01_list.do"><span>누적 보급용량</span></a></li>
+														<li><a href="/biz/statistics/supply/supply04_01_list.do"><span>신규 보급용량</span></a></li>
+													</ul>
+												</li>
+												<li><a href="/biz/statistics/industry/industry02.do"><span>산업통계</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="/biz/pds/photo/list.do"><span>종합자료실</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/pds/photo/list.do"><span>포토갤러리</span></a></li>
+												<li><a href="/biz/pds/dictionary/list.do"><span>용어사전</span></a></li>
+												<li><a href="/biz/pds/failure/list.do"><span>불합격사례</span></a></li>
+												<li><a href="/biz/pds/pds/list.do"><span>일반자료실</span></a></li>
+											</ul>
+										</li>
+									</ul>
+								</div>
+							</li>
+							<li>
+								<a href="javascript:void(0);">재생E코리아</a>
+								<div class="gnb_dep02_wrap">
+									<p class="gnb_dep02_tit type04"><span>재생E코리아</span></p>
+									<ul class="gnb_dep02 fix sty04">
+										<li>
+											<a href="/biz/korea/intro/kor_solar.do"><span>재생에너지원별 소개</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/korea/intro/kor_solar.do"><span>태양광</span></a></li>
+												<li><a href="/biz/korea/intro/kor_heat.do"><span>태양열</span></a></li>
+												<li><a href="/biz/korea/intro/kor_wind.do"><span>풍력</span></a></li>
+												<li><a href="/biz/korea/intro/kor_geo.do"><span>지열</span></a></li>
+												<li><a href="/biz/korea/intro/kor_water.do"><span>수력</span></a></li>
+												<li><a href="/biz/korea/intro/kor_water_heat.do"><span>수열</span></a></li>
+												<li><a href="/biz/korea/intro/kor_sea.do"><span>해양</span></a></li>
+<!-- 												<li><a href="/biz/korea/intro/kor_hydro.do"><span>수소</span></a></li>
+												<li><a href="/biz/korea/intro/kor_fuel.do"><span>연료전지</span></a></li> -->
+												<li><a href="/biz/korea/intro/kor_bio.do"><span>바이오</span></a></li>
+												<li><a href="/biz/korea/intro/kor_waste.do"><span>폐기물</span></a></li>
+<!-- 												<li><a href="/biz/korea/intro/kor_gas.do"><span>석탄가스/액화</span></a></li> -->
+											</ul>
+										</li>
+										<li>
+											<a href="/biz/korea/book/list.do"><span>홍보마당</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/korea/board/list.do"><span>재생 국내외 동향</span></a></li>
+												<li><a href="/biz/korea/briefing/list.do"><span>재생에너지 브리핑</span></a></li>
+												<li><a href="/biz/korea/exhibition/list.do"><span>해외 재생에너지 전시회</span></a></li>
+												<li><a href="/biz/korea/book/list.do"><span>홍보책자</span></a></li>
+												<!-- <li><a href="/biz/korea/cardnews/list.do"><span>카드뉴스</span></a></li> -->
+												<!-- <li><a href="/biz/korea/truth/view.do"><span>오해와진실</span></a></li> -->
+											</ul>
+										</li>
+										<li>
+											<a href="/biz/korea/prevention/list.do"><span>재생설비 안전관리 및 피해예방</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/korea/prevention/list.do"><span>재생사업 피해예방</span></a></li>
+												<li><a href="/biz/korea/safety/list.do"><span>재생설비 안전관리</span></a></li>
+											</ul>
+										</li>
+									</ul>
+								</div>
+							</li>
+							<li>
+								<a href="javascript:void(0);">센터소개</a>
+								<div class="gnb_dep02_wrap">
+									<p class="gnb_dep02_tit type05"><span>센터소개</span></p>
+									<ul class="gnb_dep02 fix sty04">
+										<li><a href="/biz/center/center_info/center_pm.do"><span>인사말</span></a></li>
+										<li><a href="/biz/center/center_info/center_his.do"><span>설립배경 및 연혁</span></a></li>
+										<li><a href="/biz/center/org/org_total.do"><span>조직도</span></a></li>
+										<li><a href="/biz/center/center_info/center_navi.do"><span>찾아오시는길</span></a></li>
+									</ul>
+								</div>
+							</li>
+						</ul>
+					</div>
+					<!--//pc_gnb_wrap-->
+					
+					<!--m_gnb_wrap-->
+					<div class="gnb_wrap m_menu_wrap">
+						<div class="m_gnb_top">
+							<a class="m_close"><span>모바일 메뉴 닫기</span></a>
+						</div>
+						<ul class="gnb_dep01 fix">
+							<li>
+								<a href="javascript:;">주요사업</a>
+								<div class="gnb_dep02_wrap" style="display: none;">
+									<ul class="gnb_dep02 fix sty04">
+										<li>
+											<a href="javascript:;"><span>재생에너지 보급확대</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/introduce/new_engy/intro_home.do?gubun=A"><span>주택지원</span></a></li>
+												<li><a href="/biz/introduce/new_engy/intro_build.do?gubun=A"><span>건물지원</span></a></li>
+												<li><a href="/biz/introduce/new_engy/intro_cvg.do?gubun=A"><span>융복합지원</span></a></li>
+												<li><a href="/biz/introduce/new_engy/intro_region.do?gubun=A"><span>확대기반조성사업</span></a></li>
+												<li><a href="/biz/introduce/new_engy/intro_solar.do?gubun=A"><span>태양광대여사업</span></a></li>
+												<li><a href="/biz/introduce/new_fin/intro_fin.do?gubun=A"><span>금융지원사업</span></a></li>
+												<!-- <li><a href="/biz/introduce/new_fin/intro_citizen.do?gubun=A"><span>주민참여자금</span></a></li>
+												<li><a href="/biz/introduce/new_fin/intro_green.do?gubun=A"><span>녹색보증사업</span></a></li> -->
+												<li><a href="/biz/introduce/new_engy/inst_conf.do?gubun=A"><span>설치확인</span></a></li>
+												<li><a href="/biz/introduce/new_policy/intro_govinstall.do?gubun=A"><span>공공기관 설치의무화제도</span></a></li>
+												<li><a href="/biz/introduce/new_policy/intro_rfs.do?gubun=A"><span>RFS</span></a></li>
+							                    <li><a href="/biz/introduce/new_policy/intro_rfsSchool.do?gubun=A"><span>학교 RE100</span></a></li>
+												<li><a href="/biz/introduce/new_policy/public_parking.do?gubun=A"><span>공영주차장 재생e 설비 설치의무화제도</span></a></li>
+												<li><a href="/biz/introduce/resco/intro.do?gubun=A"><span>재생에너지종합서비스기업(ReSCO)</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>정책 및 통계</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/introduce/new_policy/plan4tdus.do?gubun=A"><span>재생에너지 기술개발 및 이용·보급 기본계획</span></a></li>
+												<li><a href="/biz/introduce/new_policy/intro_eips.do?gubun=A"><span>전력정보화 및 정책지원사업</span></a></li>
+												<li><a href="/biz/introduce/new_policy/policy_support.do?gubun=A"><span>정책지원</span></a></li>
+												<li><a href="/biz/introduce/new_policy/intro_kre100.do?gubun=A"><span>재생e 사용 확인(K-RE100)</span></a></li>
+												<li><a href="/biz/introduce/new_policy/statistics.do?gubun=A"><span>통계</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>RPS</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/introduce/new_rps/intro_rps.do?gubun=A"><span>RPS</span></a></li>
+												
+												<li><a href="/biz/introduce/new_rps/intro_price.do?gubun=A"><span>고정가격계약 입찰제도</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>대국민 정보제공</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/introduce/new_comm/educontent.do?gubun=A"><span>재생에너지 교육콘텐츠 기획운영</span></a></li>
+												<li><a href="/biz/introduce/new_comm/onestop.do?gubun=A"><span>재생에너지 클라우드 플랫폼</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>재생에너지 산업기반 구축</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/introduce/new_ib/intro_offshorewind_support.do?gubun=A"><span>공공주도 대규모 해상풍력 단지개발 지원</span></a></li>
+												<li><a href="/biz/introduce/new_ib/wfri.do?gubun=A"><span>풍력전후방 인프라구축</span></a></li>
+												<li><a href="/biz/introduce/new_ib/wtci.do?gubun=A"><span>풍력시험인증 인프라구축</span></a></li>
+												<li><a href="/biz/introduce/new_policy/intro_nwppsd.do?gubun=A"><span>풍력발전합동지원반</span></a></li>
+												<!-- <li><a href="/biz/introduce/new_ib/intro_sunshine_dure.do?gubun=A"><span>햇빛두레 사업</span></a></li> -->
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>재생에너지 설비 인증 및 검증</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/introduce/new_cert/intro_standard.do?gubun=B"><span>재생에너지 표준화 및 인증고도화</span></a></li>
+												<li><a href="/biz/introduce/new_cert/intro_energyks.do?gubun=A"><span>재생에너지설비 KS인증</span></a></li>
+												<li><a href="/biz/introduce/new_cert/intro_turbineks.do?gubun=A"><span>중대형 풍력터빈 KS인증</span></a></li>
+												<li><a href="/biz/introduce/new_cert/intro_co2verif.do?gubun=A"><span>탄소검증제</span></a></li>
+												<li><a href="/biz/introduce/new_cert/const_standard.do?gubun=A"><span>재생에너지설비 시공기준</span></a></li>
+												<li><a href="/biz/introduce/new_policy/intro_energysafety.do?gubun=A"><span>재생에너지설비 안전관리</span></a></li>
+											</ul>
+										</li>
+									</ul>
+								</div>
+							</li>
+							<li>
+								<a href="javascript:void(0);">FAQ 및 질문하기</a>
+								<div class="gnb_dep02_wrap" style="display: none;">
+									<ul class="gnb_dep02 fix sty04">
+										<li>
+											<a href="javascript:;"><span>재생에너지 보급확대</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010100"><span>주택지원</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010200"><span>건물지원</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010300"><span>융복합지원</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010400"><span>확대기반조성사업</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010500"><span>태양광대여사업</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010600"><span>금융지원사업</span></a></li>
+												<!-- <li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010700"><span>주민참여자금</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010800"><span>녹색보증사업</span></a></li> -->
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010900"><span>설치확인</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A011200"><span>공공기관 설치의무화제도</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A011300"><span>RFS</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A011400"><span>학교 RE100</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A011500"><span>공영주차장 재생e 설비 설치의무화제도</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A011600"><span>재생에너지종합서비스기업(ReSCO)</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>정책 및 통계</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A020000&depth_2=A020100"><span>재생에너지 기술개발 및 이용·보급 기본계획</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A020000&depth_2=A020200"><span>전력정보화 및 정책지원사업</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A020000&depth_2=A020300"><span>정책지원</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A020000&depth_2=A020400"><span>재생e 사용 확인(K-RE100)</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A020000&depth_2=A020500"><span>통계</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>RPS</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A030000&depth_2=A030100"><span>RPS</span></a></li>
+												
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A030000&depth_2=A030300"><span>고정가격계약 입찰제도</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>대국민 정보제공</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A040000&depth_2=A040100"><span>재생에너지 교육콘텐츠 기획운영</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A040000&depth_2=A040200"><span>재생에너지 클라우드 플랫폼</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>재생에너지 산업기반 구축</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A060000&depth_2=A060100"><span>공공주도 대규모 해상풍력 단지개발 지원</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A060000&depth_2=A060200"><span>풍력전후방 인프라구축</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A060000&depth_2=A060300"><span>풍력시험인증 인프라구축</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A060000&depth_2=A060400"><span>풍력발전합동지원반</span></a></li>
+												<!-- <li><a href="/biz/faq/faq_list02.do?depth_1=A060000&depth_2=A060500"><span>햇빛두레 사업</span></a></li> -->
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>재생에너지 설비 인증 및 검증</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A050000&depth_2=A050100"><span>재생에너지 표준화 및 인증고도화</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A050000&depth_2=A050200"><span>재생에너지설비 KS인증</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A050000&depth_2=A050300"><span>중대형 풍력터빈 KS인증</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A050000&depth_2=A050400"><span>탄소검증제</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A050000&depth_2=A050500"><span>재생설비 시공기준</span></a></li>
+												<li><a href="/biz/faq/faq_list02.do?depth_1=A050000&depth_2=A050600"><span>재생에너지설비 안전관리</span></a></li>
+											</ul>
+										</li>
+									</ul>
+								</div>
+							</li>
+							<li>
+								<a href="javascript:;">자료실</a>
+								<div class="gnb_dep02_wrap" style="display: none;">
+									<ul class="gnb_dep02 fix sty04">
+										<li>
+											<a href="javascript:;"><span>알림/뉴스</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/pds/notice/list.do"><span>공지사항</span></a></li>
+												<li><a href="/biz/pds/businoti/list.do"><span>사업공고</span></a></li>
+												<li><a href="/biz/pds/news/list.do"><span>보도자료</span></a></li>
+											</ul>
+										</li>
+										<li>
+										<a href="javascript:;"><span>관계법령</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/pds/related/list.do"><span>규정</span></a></li>
+												<li><a href="/biz/pds/decree/list.do"><span>관계법령</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>통계자료</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/pds/statistic/list.do"><span>통계자료</span></a></li>
+												<li>
+													<a href="/biz/statistics/supply/supply01_01_list.do"><span>보급통계</span></a>
+													<ul class="gnb_dep04">
+														<li><a href="/biz/statistics/supply/supply01_01_list.do"><span>생산량</span></a></li>
+														<li><a href="/biz/statistics/supply/supply02_01_list.do"><span>발전량</span></a></li>
+														<li><a href="/biz/statistics/supply/supply03_01_list.do"><span>누적 보급용량</span></a></li>
+														<li><a href="/biz/statistics/supply/supply04_01_list.do"><span>신규 보급용량</span></a></li>
+													</ul>
+												</li>
+												<li><a href="/biz/statistics/industry/industry02.do"><span>산업통계</span></a></li>
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>종합자료실</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/pds/photo/list.do"><span>포토갤러리</span></a></li>
+												<li><a href="/biz/pds/dictionary/list.do"><span>용어사전</span></a></li>
+												<li><a href="/biz/pds/failure/list.do"><span>불합격사례</span></a></li>
+												<li><a href="/biz/pds/pds/list.do"><span>일반자료실</span></a></li>
+											</ul>
+										</li>
+									</ul>
+								</div>
+							</li>
+							<li>
+								<a href="javascript:;">재생E코리아</a>
+								<div class="gnb_dep02_wrap" style="display: none;">
+									<ul class="gnb_dep02 fix sty03">
+										<li>
+											<a href="javascript:;"><span>재생에너지원별 소개</span></a>
+											<ul class="gnb_dep03">
+												<!-- <li><a href="/biz/korea/intro/kor_intro.do"><span>신재생에너지원별 소개</span></a></li> -->
+												<li><a href="/biz/korea/intro/kor_solar.do"><span>태양광</span></a></li>
+												<li><a href="/biz/korea/intro/kor_heat.do"><span>태양열</span></a></li>
+												<li><a href="/biz/korea/intro/kor_wind.do"><span>풍력</span></a></li>
+												<li><a href="/biz/korea/intro/kor_geo.do"><span>지열</span></a></li>
+												<li><a href="/biz/korea/intro/kor_water.do"><span>수력</span></a></li>
+												<li><a href="/biz/korea/intro/kor_water_heat.do"><span>수열</span></a></li>
+												<li><a href="/biz/korea/intro/kor_sea.do"><span>해양</span></a></li>
+												
+												
+												<li><a href="/biz/korea/intro/kor_bio.do"><span>바이오</span></a></li>
+												<li><a href="/biz/korea/intro/kor_waste.do"><span>폐기물</span></a></li>
+												
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>홍보마당</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/korea/board/list.do"><span>재생 국내외 동향</span></a></li>
+												<li><a href="/biz/korea/briefing/list.do"><span>재생에너지 브리핑</span></a></li>
+												<li><a href="/biz/korea/exhibition/list.do"><span>해외 재생에너지 전시회</span></a></li>
+												<li><a href="/biz/korea/book/list.do"><span>홍보책자</span></a></li>
+												<!-- <li><a href="/biz/korea/cardnews/list.do"><span>카드뉴스</span></a></li> -->
+												<!-- <li><a href="/biz/korea/truth/view.do"><span>오해와진실</span></a></li> -->
+											</ul>
+										</li>
+										<li>
+											<a href="javascript:;"><span>재생설비 안전관리 및 피해예방</span></a>
+											<ul class="gnb_dep03">
+												<li><a href="/biz/korea/prevention/list.do"><span>재생사업 피해예방</span></a></li>
+												<li><a href="/biz/korea/safety/list.do"><span>재생설비 안전관리</span></a></li>
+											</ul>
+										</li>
+									</ul>
+								</div>
+							</li>
+							<li>
+								<a href="javascript:;">센터소개</a>
+								<div class="gnb_dep02_wrap" style="display: none;">
+									<ul class="gnb_dep02 fix sty04">
+										<li><a href="/biz/center/center_info/center_pm.do"><span>인사말</span></a></li>										
+										<li><a href="/biz/center/center_info/center_his.do"><span>설립배경 및 연혁</span></a></li>
+										<li>
+											<a href="javascript:;"><span>조직도</span></a>
+											<ul class="gnb_dep03"> 
+												<li><a href="/biz/center/org/org_total.do"><span>조직도 전체보기</span></a></li>
+												<li><!-- <a href="/biz/center/org/list.do?depth_1=B010100&depth_2=B010101"><span>조직도 상세</span></a> --></li>
+											</ul>
+										</li>
+										<li>
+											<a href="/biz/center/center_info/center_navi.do"><span>찾아오시는길</span></a>
+										</li>
+									</ul>
+								</div>
+							</li>
+						</ul>
+					</div>
+					<!--//m_gnb_wrap-->
+					
+					<a href="javascript:void(0);" class="btn_sitemap ico_menu"><span>사이트맵</span></a>
+				</div>
+			</div>
+			<!--//header_inner-->
+			
+		</div>
+		<!--//header_wrap-->
+		
+		<!--btn_call-->
+		<!-- <a href="javascript:;" class="btn_call_center"><span>통합콜센터</span></a> -->
+		<!--//btn_call-->
+		
+		<!--sub_wrap-->
+		<div class="sub_wrap">
+			
+			<!--//sub_top-->
+			<!-- //lnb 영역 확장,접힘 상태표시 -->
+			<script>
+				document.addEventListener('DOMContentLoaded', function () {
+					// 모든 .lnb_dep01 > li > a 요소를 선택합니다.
+					const menuLinks = document.querySelectorAll('.lnb_dep01 > li > a');
+
+					menuLinks.forEach(function (link, index) {
+						// 링크의 다음 형제 요소가 ul.lnb_dep02인지 확인합니다.
+						const submenu = link.nextElementSibling;
+						if (submenu && submenu.classList.contains('lnb_dep02')) {
+							// 서브메뉴에 고유한 ID를 부여합니다.
+							const submenuId = `submenu-`;
+							submenu.setAttribute('id', submenuId);
+
+							// 초기 상태 설정
+							const isExpanded = link.classList.contains('on');
+							link.setAttribute('aria-expanded', isExpanded);
+							link.setAttribute('aria-controls', submenuId);
+							link.setAttribute('title', isExpanded ? '확장됨' : '축소됨');
+
+							// 클릭 이벤트 리스너 추가
+							link.addEventListener('click', function (event) {
+								event.preventDefault(); // 기본 동작 방지
+
+								const currentlyExpanded = link.getAttribute('aria-expanded') === 'true';
+
+								// 모든 서브메뉴를 닫고 aria-expanded를 false로 설정
+								menuLinks.forEach(function (otherLink) {
+									const otherSubmenu = otherLink.nextElementSibling;
+									if (otherSubmenu && otherSubmenu.classList.contains('lnb_dep02')) {
+										otherSubmenu.style.display = 'none';
+										otherLink.setAttribute('aria-expanded', 'false');
+										otherLink.setAttribute('title', '축소됨');
+										otherLink.classList.remove('on');
+									}
+								});
+
+								if (!currentlyExpanded) {
+									// 클릭한 링크의 서브메뉴를 열고 aria-expanded를 true로 설정
+									submenu.style.display = 'block';
+									link.setAttribute('aria-expanded', 'true');
+									link.setAttribute('title', '확장됨');
+									link.classList.add('on');
+								}
+							});
+						}
+					});
+				});
+
+
+			</script>
+			
+			
+			<!--sub_top-->
+			<div class="sub_top">
+				
+				<div class="sub_top_inner">
+					
+					<div class="sub_top_search sty02 fix">
+						
+						<h2 class="sub_search_tit">자료실</h2>
+						
+					</div>
+					
+				</div>
+				
+			</div>
+			
+			<!--//sub_top-->
+			
+			<!-- lnb -->
+			
+			<!--// lnb -->
+			
+			
+<script type="text/javascript">
+	$(document).ready(function() {
+
+	});
+
+	function search_form() {
+		$("#searchform").submit();
+	}
+
+	//파일 다운로드
+	function file_down(no, gubun, kinds) {
+		location.href = "/biz/file/File_down.do?no=" + no + "&gubun=" + gubun + "&kinds=" + kinds;
+	};
+	
+	
+	function Fn_LayerOpen(){
+		$("#pop_Layer").css('display','block');
+		$('html').css('overflow','hidden');
+	};
+	
+	
+	function Fn_LayerClose( e ) {
+		$("input[name='EMAIL']").val('');
+	    $("input[name='BELONG']").prop('checked', false);
+	    $("input[name='AGE']").prop('checked', false);
+	    $("input[name='INTEREST_BUSI']").prop('checked', false);
+		$("#pop_Layer").css('display','none');
+		$('html').css('overflow','auto');
+	}
+	
+	
+	function Fn_BtnMail() {
+		if(!validCheck()) return;
+		var mail = $("input[name='EMAIL']").val().trim();
+		if (!fn_Check_Email(mail)) {
+			alert("이메일 형식이 옳바르지 않습니다.");
+			return $("input[name='EMAIL']").focus();
+		}
+		$("#mail_frm").attr("action", "/biz/pds/businoti/mail_apply.do");
+		$("#mail_frm").submit();
+	}
+
+</script>
+
+<div class="container_section">
+	<!-- lnb -->
+	<div class="lnb_wrap">
+
+		<div class="lnb_inner fix">
+			<a href="/biz/main/main.do" class="lnb_home"><span>메인으로 이동</span></a>
+			<ul class="lnb_dep01 fix">
+				<li>
+					<a href="javascript:;"><span>자료실</span></a>
+					<ul class="lnb_dep02" style="display: none;">
+						<li><a href="/biz/introduce/new_engy/intro_home.do"><span>주요사업</span></a></li>
+						<li><a href="/biz/faq/faq_main.do"><span>FAQ 및 질문하기</span></a></li>
+						<li><a href="/biz/pds/notice/list.do"><span>자료실</span></a></li>
+						<li><a href="/biz/korea/intro/kor_solar.do"><span>재생E코리아</span></a></li>
+						<li><a href="/biz/center/center_info/center_pm.do"><span>센터소개</span></a></li>
+					</ul>
+				</li>
+				<li>
+					<a href="javascript:;"><span>알림/뉴스</span></a>
+					<ul class="lnb_dep02" style="display: none;">
+						<li><a href="/biz/pds/notice/list.do"><span>알림/뉴스</span></a></li>
+						<li><a href="/biz/pds/related/list.do"><span>규정</span></a></li>
+						<li><a href="/biz/pds/statistic/list.do"><span>통계자료</span></a></li>
+						<li><a href="/biz/pds/photo/list.do"><span>종합자료실</span></a></li>
+					</ul>
+				</li>
+				<li>
+					<a href="javascript:;"><span>사업공고</span></a>
+					<ul class="lnb_dep02" style="display: none;">
+						<li><a href="/biz/pds/notice/list.do"><span>공지사항</span></a></li>
+						<li><a href="/biz/pds/businoti/list.do"><span>사업공고</span></a></li>
+						<li><a href="/biz/pds/news/list.do"><span>보도자료</span></a></li>
+					</ul>
+				</li>
+			</ul>
+			<!-- <a href="javascript:;" class="btn_share"><span>공유하기 버튼</span></a> -->
+		</div>
+
+	</div>
+	<!--// lnb -->
+
+	<!--sub_cont_wrap-->
+	<div class="sub_cont_wrap" id="content">
+		<div class="sub_cont_inner">
+
+			<div class="sub_tit_top type02">
+				<div class="tit_list">
+					<h3 class="sub_tit_h3 fix">사업공고</h3>
+				</div>
+				<div class="h3_right_wrap sty01 fix">
+                    <a href="javascript:Fn_LayerOpen();" class="h3_right_btn"><em>메일 구독 신청</em></a>
+                </div>
+
+			</div>
+			
+			
+			<div id="pop_Layer" style="display:none;" class="pop_wrap">
+				<div class="pop_inner">
+					<div class="pop_top">
+						<h4 class="pop_tit">사업공고 및 공지사항 메일 구독 신청</h4>
+						<a href="javascript:void(0);" onclick="Fn_LayerClose();" class="btn_close"><span>닫기버튼</span></a>
+					</div>
+				
+					<div class="pop_con">
+						<p class="p_txt_s right"> *표시는 필수 입력 사항입니다.</p>
+						<form id="mail_frm" name="mail_frm" method="POST">
+				
+						<div class="table_sty01 td_left">
+							<table>
+								<colgroup>
+									<col width=" 17%;">
+									<col width=" calc(50% - 17%);">
+									<col width=" 17%;">
+									<col width=" calc(50% - 17%);">
+								</colgroup>
+								<tbody>
+									<tr>
+										<th>이메일<span class="c_red">*</span></th>
+										<td colspan="3">
+											<input type="text" name="EMAIL" class="input_text mustNeed" title="이메일 입력">
+										</td>
+									</tr>
+									<tr>
+										<th>소속<span class="c_red">*</span></th>
+										<td colspan="3">
+                                            <div class="radio_box_wrap">
+                                                
+                                                    <label><input type="radio" name="BELONG" value="D010401" class="mustNeed" title="소속 선택"/><span>민간</span></label>
+                                                
+                                                    <label><input type="radio" name="BELONG" value="D010402" class="mustNeed" title="소속 선택"/><span>기업</span></label>
+                                                
+                                                    <label><input type="radio" name="BELONG" value="D010403" class="mustNeed" title="소속 선택"/><span>공공기관</span></label>
+                                                
+                                            </div>
+										</td>
+									</tr>
+									<tr>
+										<th>연령<span class="c_red">*</span></th>
+										<td colspan="3">
+                                            <div class="radio_box_wrap">
+                                                
+                                                    <label><input type="radio" name="AGE" value="D010501" class="mustNeed" title="연령 선택"/><span>10대</span></label>
+                                                
+                                                    <label><input type="radio" name="AGE" value="D010502" class="mustNeed" title="연령 선택"/><span>20대</span></label>
+                                                
+                                                    <label><input type="radio" name="AGE" value="D010503" class="mustNeed" title="연령 선택"/><span>30대</span></label>
+                                                
+                                                    <label><input type="radio" name="AGE" value="D010504" class="mustNeed" title="연령 선택"/><span>40대</span></label>
+                                                
+                                                    <label><input type="radio" name="AGE" value="D010505" class="mustNeed" title="연령 선택"/><span>50대</span></label>
+                                                
+                                                    <label><input type="radio" name="AGE" value="D010506" class="mustNeed" title="연령 선택"/><span>60대</span></label>
+                                                
+                                                    <label><input type="radio" name="AGE" value="D010507" class="mustNeed" title="연령 선택"/><span>70대</span></label>
+                                                
+                                            </div>
+										</td>
+									</tr>
+									<tr>
+										<th>관심 사업<span class="c_red">*</span></th>
+										<td colspan="3">
+                                            <div class="check_box_wrap">
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010301" class="mustNeed" title="관심사업 선택"/><span>주택지원사업</span></label>
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010302" class="mustNeed" title="관심사업 선택"/><span>건물지원사업</span></label>
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010303" class="mustNeed" title="관심사업 선택"/><span>융복합지원사업</span></label>
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010304" class="mustNeed" title="관심사업 선택"/><span>금융지원사업</span></label>
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010305" class="mustNeed" title="관심사업 선택"/><span>설치확인</span></label>
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010306" class="mustNeed" title="관심사업 선택"/><span>설치의무화</span></label>
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010307" class="mustNeed" title="관심사업 선택"/><span>RE100</span></label>
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010308" class="mustNeed" title="관심사업 선택"/><span>RPS</span></label>
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010309" class="mustNeed" title="관심사업 선택"/><span>고정가격계약 입찰제도</span></label>
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010310" class="mustNeed" title="관심사업 선택"/><span>공공주도 대규모 해상풍력 단지개발 지원 사업</span></label>
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010311" class="mustNeed" title="관심사업 선택"/><span>신재생에너지 표준화 및 인증고도화 지원사업</span></label>
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010312" class="mustNeed" title="관심사업 선택"/><span>신재생에너지설비 KS인증</span></label>
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010313" class="mustNeed" title="관심사업 선택"/><span>탄소검증제</span></label>
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010314" class="mustNeed" title="관심사업 선택"/><span>신재생에너지설비 시공기준</span></label>
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010315" class="mustNeed" title="관심사업 선택"/><span>신재생에너지설비 안전관리</span></label>
+                                                
+                                                    <label><input type="checkbox" name="INTEREST_BUSI" value="D010316" class="mustNeed" title="관심사업 선택"/><span>공지 및 안내</span></label>
+                                                
+                                            </div>
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+						<div class="btn_right sty02 btn_center_wrap">
+                            <a href="javascript:void(0);" onclick="Fn_BtnMail();"class="btn_regist"><span>신청</span></a>
+                            <a href="javascript:void(0);" onclick="Fn_LayerClose();" class="btn_cancel"><span>취소</span></a>
+						</div>
+						</form>
+					</div>
+				</div>
+			</div>
+			
+			
+			<div class="sub_content">
+
+				<form action="./list.do" id="searchform">
+					<input type="hidden" name="CSRFToken" value="yQsg990ncqsCmTVARH1FGnolpxhxYozO0t4sVccjrVt2UpoGuH">
+					<fieldset>
+						<div class="search_cont notice">
+							<div class="search_inner sty03 fix">
+								<div class="search_inner_left type02">
+									<select name="state" id="state" title="진행여부 선택" class="select_box">
+										<option value="">진행여부</option>
+										<option value="진행" >진행</option>
+										<option value="종료" >종료</option>
+									</select>
+									<select name="depart" id="depart" title="담당부서 선택" class="select_box">
+										<option value="">담당부서</option>
+										
+											<option value="A010101" >재생정책처</option>
+										
+											<option value="A010102" >RPS사업처</option>
+										
+											<option value="A010103" >신재생에너지보급실</option>
+										
+											<option value="A010104" >신재생에너지산업실</option>
+										
+											<option value="A010123" >재생지원사업처</option>
+										
+											<option value="A010105" >풍력사업실</option>
+										
+											<option value="A010107" >풍력발전합동지원반</option>
+										
+											<option value="A010129" >해상풍력사업처</option>
+										
+											<option value="A010128" >풍력총괄처</option>
+										
+											<option value="A010106" >태양광사업실</option>
+										
+											<option value="A010125" >태양광기획처</option>
+										
+											<option value="A010126" >태양광산업처</option>
+										
+											<option value="A010127" >국제협력처</option>
+										
+											<option value="A010121" >재생에너지소통처</option>
+										
+											<option value="A010124" >AI데이터처</option>
+										
+											<option value="A010108" >서울지역본부</option>
+										
+											<option value="A010109" >부산울산지역본부</option>
+										
+											<option value="A010110" >대구경북지역본부</option>
+										
+											<option value="A010111" >인천지역본부</option>
+										
+											<option value="A010112" >광주전남지역본부</option>
+										
+											<option value="A010113" >대전충남지역본부</option>
+										
+											<option value="A010114" >세종충북지역본부</option>
+										
+											<option value="A010115" >경기지역본부</option>
+										
+											<option value="A010116" >강원지역본부</option>
+										
+											<option value="A010117" >전북지역본부</option>
+										
+											<option value="A010118" >경남지역본부</option>
+										
+											<option value="A010119" >제주지역본부</option>
+										
+											<option value="A010120" >국제협력실</option>
+										
+											<option value="A010122" >지역수용성실</option>
+										
+									</select>
+									<select name="searchfield" id="searchfield" title="검색종류 선택" class="select_box">
+										<option value="">검색종류</option>
+										<option value="TITLE" >제목</option>
+										<option value="CONT" >내용</option>
+									</select>
+									<input type="text" class="input_text" placeholder="직접입력" title="검색입력박스" maxlength="50" name="searchword" value="">
+									<a href="javascript:void(0);" class="btn_sty02" onclick="search_form()">검색</a>
+								</div>
+							</div>
+						</div>
+					</fieldset>
+				</form>
+				<div class="list_wrap fix">
+					<p class="list_total">총 <span>313</span>건</p>
+					<div class="list_each">
+						<select name="block_cnt" id="block_cnt" title="갯수 선택" class="select_box">
+							<option value="10" >10개씩 보기</option>
+							<option value="20" >20개씩 보기</option>
+							<option value="30" >30개씩 보기</option>
+						</select>
+						<!-- 	<ul class="board_view_btn fix">
+									<li class="on"><a href="javascript:;"><span>리스트형식</span></a></li>
+									<li><a href="javascript:;"><span>앨범형식</span></a></li>
+								</ul> -->
+					</div>
+				</div>
+				<div class="table_list m_scroll on">
+					<table>
+						<caption>사업공고 리스트에 관한 표로 번호, 진행여부, 분류, 제목, 담당부서, 등록일, 첨부파일, 조회수로 구성되어있다.</caption>
+						<colgroup>
+							<col width="5%">
+							<col width="10%">
+							<col width="5%">
+							<col width="35%">
+							<col width="15%">
+							<col width="10%">
+							<col width="10%">
+							<col width="10%">
+							<col width="5%">
+						</colgroup>
+						<thead>
+							<tr>
+								<th>번호</th>
+								<th>진행여부</th>
+								<th>분류</th>
+								<th>제목</th>
+								<th>담당부서</th>
+								<th>등록일</th>
+								<th>마감일</th>
+								<th>첨부파일</th>
+								<th>조회수</th>
+							</tr>
+						</thead>
+						<tbody>
+							
+								<tr>
+									<td><span class="table_noti_txt center">공지</span></td>
+									<td><a href="./view.do?no=7243">진행</a></td>
+									<td>[공고]</td>
+									<td class="left">
+										<a href="./view.do?no=7243">
+											
+												
+													(재생에너지센터 공고 제2026-36호) 2026년 하반기 해상풍력 고정가격계약 경쟁입찰 ...
+												
+												
+											
+										</a>
+									</td>
+									<td><a href="./view.do?no=7243">RPS사업처</a></td>
+									<td>2026-10-30</td>
+									<td>2100-10-08</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7243','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7243','2','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7243','3','notice')" class="ico_zip"><span>zip파일</span></a>
+										
+										
+											<a href="javascript:file_down('7243','4','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+									</td>
+									<td>1728</td>
+								</tr>
+							
+								<tr>
+									<td><span class="table_noti_txt center">공지</span></td>
+									<td><a href="./view.do?no=7205">진행</a></td>
+									<td>[공고]</td>
+									<td class="left">
+										<a href="./view.do?no=7205">
+											
+												
+													2026년도 10월 재생에너지종합서비스기업(ReSCO) 모집 공고(&#039;26년도 마지막 모집 ...
+												
+												
+											
+										</a>
+									</td>
+									<td><a href="./view.do?no=7205">태양광기획처</a></td>
+									<td>2026-10-16</td>
+									<td>2026-11-16</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7205','1','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7205','2','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7205','3','notice')" class="ico_xls"><span>엑셀파일</span></a>
+										
+										
+											<a href="javascript:file_down('7205','4','notice')" class="ico_xls"><span>엑셀파일</span></a>
+										
+										
+									</td>
+									<td>2702</td>
+								</tr>
+							
+								<tr>
+									<td><span class="table_noti_txt center">공지</span></td>
+									<td><a href="./view.do?no=7183">진행</a></td>
+									<td>[공고]</td>
+									<td class="left">
+										<a href="./view.do?no=7183">
+											
+												
+												
+													2026년 KS인증 제품심사 수수료지원 변경 공고
+												
+											
+										</a>
+									</td>
+									<td><a href="./view.do?no=7183">태양광산업처</a></td>
+									<td>2026-10-06</td>
+									<td>2026-12-31</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7183','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7183','2','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+										
+										
+									</td>
+									<td>1562</td>
+								</tr>
+							
+								<tr>
+									<td><span class="table_noti_txt center">공지</span></td>
+									<td><a href="./view.do?no=7084">진행</a></td>
+									<td>[공고]</td>
+									<td class="left">
+										<a href="./view.do?no=7084">
+											
+												
+												
+													2026년 지붕 태양광 보증보험료등 지원사업 공고
+												
+											
+										</a>
+									</td>
+									<td><a href="./view.do?no=7084">재생정책처</a></td>
+									<td>2026-09-11</td>
+									<td>2026-12-11</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7084','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7084','2','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7084','3','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7084','4','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7084','5','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+									</td>
+									<td>4282</td>
+								</tr>
+							
+								<tr>
+									<td><span class="table_noti_txt center">공지</span></td>
+									<td><a href="./view.do?no=7083">진행</a></td>
+									<td>[공고]</td>
+									<td class="left">
+										<a href="./view.do?no=7083">
+											
+												
+												
+													직접 PPA 계량설비 설치·교체 비용 지원사업 공고
+												
+											
+										</a>
+									</td>
+									<td><a href="./view.do?no=7083">재생정책처</a></td>
+									<td>2026-09-11</td>
+									<td>2026-12-11</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7083','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7083','2','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7083','3','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+										
+									</td>
+									<td>3443</td>
+								</tr>
+							
+								<tr>
+									<td><span class="table_noti_txt center">공지</span></td>
+									<td><a href="./view.do?no=7043">진행</a></td>
+									<td>[공고]</td>
+									<td class="left">
+										<a href="./view.do?no=7043">
+											
+												
+												
+													2026년도 재생에너지 금융지원사업 지원 2차 변경 공고
+												
+											
+										</a>
+									</td>
+									<td><a href="./view.do?no=7043">재생지원사업처</a></td>
+									<td>2026-09-07</td>
+									<td>2030-12-31</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7043','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7043','2','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7043','3','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7043','4','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7043','5','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+									</td>
+									<td>8068</td>
+								</tr>
+							
+								<tr>
+									<td><span class="table_noti_txt center">공지</span></td>
+									<td><a href="./view.do?no=6747">진행</a></td>
+									<td>[공고]</td>
+									<td class="left">
+										<a href="./view.do?no=6747">
+											
+												
+												
+													2026년도 재생에너지 금융지원사업 지원 변경 공고
+												
+											
+										</a>
+									</td>
+									<td><a href="./view.do?no=6747">재생지원사업처</a></td>
+									<td>2026-07-06</td>
+									<td>2026-12-31</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('6747','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('6747','2','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('6747','3','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('6747','4','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('6747','5','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+									</td>
+									<td>10739</td>
+								</tr>
+							
+								<tr>
+									<td><span class="table_noti_txt center">공지</span></td>
+									<td><a href="./view.do?no=6685">진행</a></td>
+									<td>[공고]</td>
+									<td class="left">
+										<a href="./view.do?no=6685">
+											
+												
+												
+													2026년 재생에너지 금융지원사업 추가공고
+												
+											
+										</a>
+									</td>
+									<td><a href="./view.do?no=6685">재생지원사업처</a></td>
+									<td>2026-06-24</td>
+									<td>2026-12-31</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('6685','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('6685','2','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+										
+										
+									</td>
+									<td>13006</td>
+								</tr>
+							
+								<tr>
+									<td><span class="table_noti_txt center">공지</span></td>
+									<td><a href="./view.do?no=6383">진행</a></td>
+									<td>[공고]</td>
+									<td class="left">
+										<a href="./view.do?no=6383">
+											
+												
+												
+													[차세대 재생에너지 표준화 및 인증고도화 혁신지원] 2026년 신규지원 대상과제 공고
+												
+											
+										</a>
+									</td>
+									<td><a href="./view.do?no=6383">태양광산업처</a></td>
+									<td>2026-04-10</td>
+									<td>2026-12-31</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('6383','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('6383','2','notice')" class="ico_zip"><span>zip파일</span></a>
+										
+										
+											<a href="javascript:file_down('6383','3','notice')" class="ico_zip"><span>zip파일</span></a>
+										
+										
+										
+									</td>
+									<td>4164</td>
+								</tr>
+							
+								<tr>
+									<td><span class="table_noti_txt center">공지</span></td>
+									<td><a href="./view.do?no=6365">진행</a></td>
+									<td>[공고]</td>
+									<td class="left">
+										<a href="./view.do?no=6365">
+											
+												
+													(신·재생에너지센터 공고 제2026-3호) 2026년 상반기 풍력 고정가격계약 경쟁입찰 공...
+												
+												
+											
+										</a>
+									</td>
+									<td><a href="./view.do?no=6365">RPS사업처</a></td>
+									<td>2026-03-30</td>
+									<td>2050-03-01</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('6365','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('6365','2','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('6365','3','notice')" class="ico_zip"><span>zip파일</span></a>
+										
+										
+											<a href="javascript:file_down('6365','4','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+									</td>
+									<td>13661</td>
+								</tr>
+							
+								<tr>
+									<td><span class="table_noti_txt center">공지</span></td>
+									<td><a href="./view.do?no=6364">진행</a></td>
+									<td>[공고]</td>
+									<td class="left">
+										<a href="./view.do?no=6364">
+											
+												
+												
+													2026년도 재생에너지 금융지원사업 지원공고(수정)
+												
+											
+										</a>
+									</td>
+									<td><a href="./view.do?no=6364">재생지원사업처</a></td>
+									<td>2026-03-27</td>
+									<td>2026-12-31</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('6364','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('6364','2','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('6364','3','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('6364','4','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('6364','5','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+									</td>
+									<td>34485</td>
+								</tr>
+							
+
+							
+								<tr>
+									<td>313</td>
+									<td><a href="./view.do?no=7244">종료</a></td>
+									<td class="center">[공고]</td>
+									<td class="left"><a href="./view.do?no=7244">
+											
+												
+												
+													2026년 대체이행 입찰 공고
+												
+											
+										</a></td>
+									<td><a href="./view.do?no=7244">RPS사업처</a></td>
+									<td>2026-10-30</td>
+									<td>2026-11-06</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7244','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7244','2','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+										
+										
+									</td>
+									<td>804</td>
+								</tr>
+							
+								<tr>
+									<td>312</td>
+									<td><a href="./view.do?no=7243">진행</a></td>
+									<td class="center">[공고]</td>
+									<td class="left"><a href="./view.do?no=7243">
+											
+												
+													(재생에너지센터 공고 제2026-36호) 2026년 하반기 해상풍력 고정가격계약 경쟁입찰 ...
+												
+												
+											
+										</a></td>
+									<td><a href="./view.do?no=7243">RPS사업처</a></td>
+									<td>2026-10-30</td>
+									<td>2100-10-08</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7243','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7243','2','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7243','3','notice')" class="ico_zip"><span>zip파일</span></a>
+										
+										
+											<a href="javascript:file_down('7243','4','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+									</td>
+									<td>1728</td>
+								</tr>
+							
+								<tr>
+									<td>311</td>
+									<td><a href="./view.do?no=7205">진행</a></td>
+									<td class="center">[공고]</td>
+									<td class="left"><a href="./view.do?no=7205">
+											
+												
+													2026년도 10월 재생에너지종합서비스기업(ReSCO) 모집 공고(&#039;26년도 마지막 모집 ...
+												
+												
+											
+										</a></td>
+									<td><a href="./view.do?no=7205">태양광기획처</a></td>
+									<td>2026-10-16</td>
+									<td>2026-11-16</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7205','1','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7205','2','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7205','3','notice')" class="ico_xls"><span>엑셀파일</span></a>
+										
+										
+											<a href="javascript:file_down('7205','4','notice')" class="ico_xls"><span>엑셀파일</span></a>
+										
+										
+									</td>
+									<td>2702</td>
+								</tr>
+							
+								<tr>
+									<td>310</td>
+									<td><a href="./view.do?no=7183">진행</a></td>
+									<td class="center">[공고]</td>
+									<td class="left"><a href="./view.do?no=7183">
+											
+												
+												
+													2026년 KS인증 제품심사 수수료지원 변경 공고
+												
+											
+										</a></td>
+									<td><a href="./view.do?no=7183">태양광산업처</a></td>
+									<td>2026-10-06</td>
+									<td>2026-12-31</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7183','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7183','2','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+										
+										
+									</td>
+									<td>1562</td>
+								</tr>
+							
+								<tr>
+									<td>309</td>
+									<td><a href="./view.do?no=7164">종료</a></td>
+									<td class="center">[공고]</td>
+									<td class="left"><a href="./view.do?no=7164">
+											
+												
+												
+													2026년도 3차 「전력정보화 및 정책지원사업 (재생에너지 분야)」 신규지원 대상과제 공고
+												
+											
+										</a></td>
+									<td><a href="./view.do?no=7164">재생정책처</a></td>
+									<td>2026-09-29</td>
+									<td>2026-10-20</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7164','1','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7164','2','notice')" class="ico_zip"><span>zip파일</span></a>
+										
+										
+											<a href="javascript:file_down('7164','3','notice')" class="ico_zip"><span>zip파일</span></a>
+										
+										
+										
+									</td>
+									<td>2068</td>
+								</tr>
+							
+								<tr>
+									<td>308</td>
+									<td><a href="./view.do?no=7163">종료</a></td>
+									<td class="center">[공고]</td>
+									<td class="left"><a href="./view.do?no=7163">
+											
+												
+												
+													2026년도 제4차 재생에너지산업 해외진출지원사업 지원계획 공고
+												
+											
+										</a></td>
+									<td><a href="./view.do?no=7163">태양광산업처</a></td>
+									<td>2026-09-28</td>
+									<td>2026-10-13</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7163','1','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7163','2','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7163','3','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7163','4','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+									</td>
+									<td>1676</td>
+								</tr>
+							
+								<tr>
+									<td>307</td>
+									<td><a href="./view.do?no=7084">진행</a></td>
+									<td class="center">[공고]</td>
+									<td class="left"><a href="./view.do?no=7084">
+											
+												
+												
+													2026년 지붕 태양광 보증보험료등 지원사업 공고
+												
+											
+										</a></td>
+									<td><a href="./view.do?no=7084">재생정책처</a></td>
+									<td>2026-09-11</td>
+									<td>2026-12-11</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7084','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7084','2','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7084','3','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7084','4','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7084','5','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+									</td>
+									<td>4282</td>
+								</tr>
+							
+								<tr>
+									<td>306</td>
+									<td><a href="./view.do?no=7083">진행</a></td>
+									<td class="center">[공고]</td>
+									<td class="left"><a href="./view.do?no=7083">
+											
+												
+												
+													직접 PPA 계량설비 설치·교체 비용 지원사업 공고
+												
+											
+										</a></td>
+									<td><a href="./view.do?no=7083">재생정책처</a></td>
+									<td>2026-09-11</td>
+									<td>2026-12-11</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7083','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7083','2','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7083','3','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+										
+									</td>
+									<td>3443</td>
+								</tr>
+							
+								<tr>
+									<td>305</td>
+									<td><a href="./view.do?no=7043">진행</a></td>
+									<td class="center">[공고]</td>
+									<td class="left"><a href="./view.do?no=7043">
+											
+												
+												
+													2026년도 재생에너지 금융지원사업 지원 2차 변경 공고
+												
+											
+										</a></td>
+									<td><a href="./view.do?no=7043">재생지원사업처</a></td>
+									<td>2026-09-07</td>
+									<td>2030-12-31</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7043','1','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7043','2','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7043','3','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7043','4','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+										
+											<a href="javascript:file_down('7043','5','notice')" class="ico_pdf"><span>pdf파일</span></a>
+										
+									</td>
+									<td>8068</td>
+								</tr>
+							
+								<tr>
+									<td>304</td>
+									<td><a href="./view.do?no=7023">종료</a></td>
+									<td class="center">[공고]</td>
+									<td class="left"><a href="./view.do?no=7023">
+											
+												
+												
+													2026년도 9월 재생에너지종합서비스기업(ReSCO) 모집 공고 및 8월 등록 결과 안내
+												
+											
+										</a></td>
+									<td><a href="./view.do?no=7023">태양광기획처</a></td>
+									<td>2026-09-03</td>
+									<td>2026-10-07</td>
+									<td>
+										<!-- 파일 아이콘 지정 -->
+										
+											<a href="javascript:file_down('7023','1','notice')" class="ico_hwp"><span>한글파일</span></a>
+										
+										
+											<a href="javascript:file_down('7023','2','notice')" class="ico_xls"><span>엑셀파일</span></a>
+										
+										
+											<a href="javascript:file_down('7023','3','notice')" class="ico_xls"><span>엑셀파일</span></a>
+										
+										
+											<a href="javascript:file_down('7023','4','notice')" class="ico_xls"><span>엑셀파일</span></a>
+										
+										
+									</td>
+									<td>3397</td>
+								</tr>
+							
+							
+						</tbody>
+					</table>
+				</div>
+				<br>
+				<!-- <div style="text-align:right">
+						 <a href="./old_list.do" class="h3_right_btn" target="_blank"><em>지난 게시글 보기</em></a>
+						</div> -->
+
+				<div class="paging">
+					<!-- 페이징-->
+					<div class='paging'><ul></ul><ol><li class='on'><a href='javascript:void(0);' title='선택됨'>1</a></li><li><a href='/biz/pds/businoti/list.do?page=2&'>2</a></li><li><a href='/biz/pds/businoti/list.do?page=3&'>3</a></li><li><a href='/biz/pds/businoti/list.do?page=4&'>4</a></li><li><a href='/biz/pds/businoti/list.do?page=5&'>5</a></li><li><a href='/biz/pds/businoti/list.do?page=6&'>6</a></li><li><a href='/biz/pds/businoti/list.do?page=7&'>7</a></li><li><a href='/biz/pds/businoti/list.do?page=8&'>8</a></li><li><a href='/biz/pds/businoti/list.do?page=9&'>9</a></li><li><a href='/biz/pds/businoti/list.do?page=10&'>10</a></li></ol><ul><li><a href='/biz/pds/businoti/list.do?page=11&'><img src='/biz/images/ico/ico_next.png' alt='다음 페이지' /></a></li><li><a href='/biz/pds/businoti/list.do?page=32&'><img src='/biz/images/ico/ico_last.png' alt='마지막 페이지' /></a></li></ul></div>
+					<!-- /페이징-->
+				</div>
+			</div>
+		</div>
+	</div>
+	<!--//sub_cont_wrap-->
+</div>
+<!--//sub_wrap-->
+
+			
+		</div>
+		<!--//sub_wrap-->
+		
+	<!--family site_wrap-->
+		<div class="family_site_wrap">
+			<div class="family_site_inner fix">
+				<div class="family_site_left fix">
+					<!-- <p>협력사 안내</p> -->
+					<ul class="btn_family fix">
+						<li class="swiper-button-prev"><span>이전버튼</span></li>
+						<li class="btns">
+							<button class="stop">정지</button>
+							<button class="start">시작</button>
+						</li>
+						<li class="swiper-button-next"><span>다음버튼</span></li>
+					</ul>
+				</div>
+				<div class="footer_slide swiper-container">
+					<ul class="family_site_cont swiper-wrapper fix">
+						<li class="swiper-slide"><a href="https://www.mcee.go.kr/home/web/main.do" target="_blank" title="새창열림"><img src="/biz/images/common/img_family01.png" alt="기후에너지환경부 로고 이미지"></a></li>
+						<li class="swiper-slide"><a href="https://en-ter.co.kr/main.do" target="_blank" title="새창열림"><img src="/biz/images/common/img_family07.png" alt="에너지마켓플레이스 로고 이미지"></a></li>
+						<li class="swiper-slide"><a href="https://www.energy.or.kr/web/kem_home_new/new_main.asp" target="_blank" title="새창열림"><img src="/biz/images/common/img_family02.png" alt="한국에너지공단 로고 이미지"></a></li>
+						<li class="swiper-slide"><a href="https://onerec.kmos.kr/portal/index.do" target="_blank" title="새창열림"><img src="/biz/images/common/img_family03.png" alt="신재생 원스톱 사업정보 통합포털 로고 이미지"></a></li>
+						<li class="swiper-slide"><a href="https://www.ppa-energy.kr" target="_blank" title="새창열림"><img src="/biz/images/common/img_family09.png" alt="PPA 중개플랫폼 로고 이미지"></a></li>
+						<li class="swiper-slide"><a href="http://www.kesis.net/main/main.jsp" target="_blank" title="새창열림"><img src="/biz/images/common/img_family04.png" alt="KESIS 국가에너지통계 종합정보시스템 로고 이미지"></a></li>
+						<li class="swiper-slide"><a href="http://epsis.kpx.or.kr/epsisnew/" target="_blank" title="새창열림"><img src="/biz/images/common/img_family05.png" alt="EPSIS 전력통계정보시스템 로고 이미지"></a></li>
+						<li class="swiper-slide"><a href="https://www.keia.or.kr/information/01.php" target="_blank" title="새창열림"><img src="/biz/images/common/img_family06.png" alt="한국에너지정보문화재단 로고 이미지"></a></li>
+						<li class="swiper-slide"><a href="https://certi-icnp.kr" target="_blank" title="새창열림"><img src="/biz/images/common/img_family08.jpg" alt="산업융합신제품적합성인증 로고 이미지"></a></li>
+					</ul>
+				</div>
+			</div>
+		</div>
+		<!--//family site_wrap-->
+
+		
+		<!--footer_wrap-->
+		<div class="footer_wrap" id="footer">
+			<div class="footer_inner">
+				<div class="footer_top fix">
+					<div class="footer_top_left fix">
+						<h2 style="margin-right: 5px;"><a href="/biz/main/main.do"><img src="/biz/images/common/logo_footer.png?v=20260918" alt="한국에너지공단 재생에너지센터"></a></h2>
+						<ul class="footer_etc">
+							<!-- <li><a href="javascript:;">이용약관</a></li> -->
+							<li><a href="https://www.energy.or.kr/front/conts/107001000000000.do" target="_blank" title="새창열림">개인정보처리방침</a></li>
+							<li><a href="http://www.kemco.or.kr/web/kem_home_new/util/email.asp" target="_blank" title="새창열림">이메일무단수집거부</a></li>
+						</ul>
+					</div>
+					<div class="footer_top_right fix">
+						<p class="footer_address"><span>44538 울산광역시 중구 종가로 323 (우정동 528-1)</span><span>대표전화 : 052) 920-0114</span></p>
+						<div class="footer_copyright">
+							<span>Copyright ⓒ 2021 재생에너지센터. All Rights Reserved.</span>
+							<a title="새창" href="http://www.wa.or.kr/board/list.asp?BoardID=0006" target="_blank"  class="web_mark">
+								<img class="wa" alt="(사)한국장애인단체총연합회 한국웹접근성인증평가원 웹 접근성 우수사이트 인증마크(WA인증마크)" src="/biz/images/common/web_mark_2025.png" width="" height="" />
+							</a>
+						</div>
+					</div>
+				</div>
+				<!-- <div class="footer_bott">
+					<div class="footer_bott_left">
+						<address>
+						</address>
+					</div>
+					<div class="footer_bott_right fix">
+						<ul class="footer_sns fix">
+							<li><a href="javascript:;"><img src="/biz/images/common/ico_sns01.png" alt=""></a></li>
+							<li><a href="javascript:;"><img src="/biz/images/common/ico_sns02.png" alt=""></a></li>
+							<li><a href="javascript:;"><img src="/biz/images/common/ico_sns03.png" alt=""></a></li>
+							<li><a href="javascript:;"><img src="/biz/images/common/ico_sns04.png" alt=""></a></li>
+							<li><a href="javascript:;"><img src="/biz/images/common/ico_sns05.png" alt=""></a></li>
+						</ul>
+						<a href="javascript:;" class="btn_top"><span>TOP</span></a>
+					</div>
+				</div> -->
+			</div>
+		</div>
+		<!--//footer_wrap-->
+		<!--sitemap-->
+		<div id="sitemap" class="sitemap">
+			<div class="sm_w">
+				<div class="sm_b">
+					<div class="h_w">
+						<div class="h"><span>전체메뉴</span></div>
+						<a href="javascript:void(0);" class="ico sm_btn_c"><span>사이트맵 닫기</span></a>
+					</div>
+
+					<div class="menu_w">
+						<ul class="d1_l fix">
+							<li class="li01">
+								<a href="/biz/introduce/new_engy/intro_home.do?gubun=A" class="d1 abc"><span>주요사업</span></a>
+								<div class="d2_w fix">
+									<ul class="d2_l">
+										<li><a href="/biz/introduce/new_engy/intro_home.do?gubun=A"><span>재생에너지 보급확대</span></a></li>
+										<li><a href="/biz/introduce/new_policy/plan4tdus.do?gubun=A"><span>정책 및 통계</span></a></li>
+										<li><a href="/biz/introduce/new_rps/intro_rps.do?gubun=A"><span>RPS</span></a></li>
+										<li><a href="/biz/introduce/new_comm/onestop.do?gubun=A"><span>대국민 정보제공</span></a></li>										
+										<li><a href="/biz/introduce/new_ib/intro_offshorewind_support.do?gubun=A"><span>재생에너지 산업기반 구축</span></a></li>										
+										<li><a href="/biz/introduce/new_cert/intro_standard.do?gubun=B"><span>재생에너지 설비 인증 및 검증</span></a></li>									
+									</ul>
+								</div>
+							</li>
+							<li class="li02">
+								<a href="/biz/faq/faq_main.do" class="d1"><span>FAQ 및 질문하기</span></a>
+								<div class="d2_w fix">
+									<ul class="d2_l">
+										<li><a href="/biz/faq/faq_list02.do?depth_1=A010000&depth_2=A010100"><span>재생에너지 보급확대</span></a></li>
+										<li><a href="/biz/faq/faq_list02.do?depth_1=A020000&depth_2=A020100"><span>정책 및 통계</span></a></li>
+										<li><a href="/biz/faq/faq_list02.do?depth_1=A030000&depth_2=A030100"><span>RPS</span></a></li>
+										<li><a href="/biz/faq/faq_list02.do?depth_1=A040000&depth_2=A040100"><span>대국민 정보제공</span></a></li>
+										<li><a href="/biz/faq/faq_list02.do?depth_1=A060000&depth_2=A060100"><span>재생에너지 산업기반 구축</span></a></li>
+										<li><a href="/biz/faq/faq_list02.do?depth_1=A050000&depth_2=A050100"><span>재생에너지 설비 인증 및 검증</span></a></li>
+									</ul>
+								</div>
+							</li>
+							<li class="li04">
+								<a href="/biz/pds/notice/list.do" class="d1"><span>자료실</span></a>
+								<div class="d2_w fix">
+									<ul class="d2_l">
+										<li><a href="/biz/pds/notice/list.do"><span>알림/뉴스</span></a></li>
+										<li><a href="/biz/pds/decree/list.do"><span>관계법령</span></a></li>
+										<li><a href="/biz/pds/statistic/list.do"><span>통계자료</span></a></li>
+										<li><a href="/biz/pds/photo/list.do"><span>일반자료실</span></a></li>										
+									</ul>
+								</div>
+							</li>
+							<li class="li05">
+								<a href="/biz/korea/intro/kor_solar.do" class="d1"><span>재생E코리아</span></a>
+								<div class="d2_w fix">
+									<ul class="d2_l">
+										<li><a href="/biz/korea/intro/kor_solar.do"><span>재생에너지원별 소개</span></a></li>
+										<li><a href="/biz/korea/board/list.do"><span>홍보마당</span></a></li>
+										<li><a href="/biz/korea/prevention/list.do"><span>재생설비 안전관리 및 피해예방</span></a></li>										
+									</ul>
+								</div>
+							</li>
+							<li class="li06">
+								<a href="/biz/center/center_info/center_pm.do" class="d1"><span>센터소개</span></a>
+								<div class="d2_w fix">
+									<ul class="d2_l">
+										<li><a href="/biz/center/center_info/center_pm.do"><span>인사말</span></a></li>
+										<!-- <li><a href="javascript:;"><span>센터전체설명</span></a></li> -->
+										<li><a href="/biz/center/center_info/center_his.do"><span>설립배경 및 연혁</span></a></li>
+										<li><a href="/biz/center/org/org_total.do"><span>조직도</span></a></li>
+										<li><a href="/biz/center/center_info/center_navi.do"><span>찾아오시는 길</span></a></li>
+									</ul>
+								</div>
+							</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!--//sitemap-->
+		
+	</div>
+	<!--//common_wrap-->
+</div>
+<!--//body_wrap-->
+    
+</body>
+</html>

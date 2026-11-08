@@ -1,0 +1,25 @@
+{
+ "CgmExpc": {
+  "resultMsg": "success",
+  "키워드": "태양광",
+  "page": "1",
+  "resultCode": "00",
+  "target": "meCgmExpc",
+  "totalCnt": "1",
+  "cgmExpc": {
+   "id": "1",
+   "안건명": "임야에 태양광 발전시설 설치",
+   "해석기관코드": "1482000",
+   "법령해석상세링크": "/DRF/lawService.do?OC=***&target=meCgmExpc&ID=20856&type=HTML&mobileYn=",
+   "안건번호": "",
+   "법령해석일련번호": "20856",
+   "질의기관명": "",
+   "해석기관명": "기후에너지환경부",
+   "해석일자": "",
+   "질의기관코드": "",
+   "데이터기준일시": "2024.12.16"
+  },
+  "section": "itmNm",
+  "numOfRows": "1"
+ }
+}

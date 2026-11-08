@@ -70,21 +70,33 @@ GOV24_COMPARE = ("서비스명", "지원대상", "지원내용", "신청기한",
 # ── 보조금24 「사찰 관련성」 규칙 ── 고치실 곳은 여기입니다 ─────────
 #
 # 사업마다 **위에서부터** 차례로 맞춰 보고 처음 걸린 줄의 분류를 씁니다.
-# (분류, 볼 칸, 말들). 말 가운데 하나라도 그 칸들에 들어 있으면 걸립니다.
+# (분류, 볼 칸, 말들) - 말 가운데 하나라도 그 칸들에 들어 있으면 걸립니다.
+# (분류, 볼 칸, 말들, (볼 칸2, 말들2)) - **둘 다** 걸려야 걸립니다.
 # 그래서 **순서가 중요합니다.** 「무관」을 맨 위에 둔 까닭은 축산 농가
 # 사업의 대상에 「건물」이 섞여 있어도 무관으로 보내기 위해서입니다.
 #
 # 어느 줄에도 안 걸린 사업은 「분류 못 함」으로 **보이게** 둡니다(접지
 # 않습니다). 모르는 것을 숨기지 않으려는 것입니다(CLAUDE.md 2장).
 # 그런 사업이 보이면 아래 목록에 말을 더해 주십시오.
-REL_HIGH, REL_HOUSE, REL_NONE, REL_UNKNOWN = "관련 높음", "주택 전용", "무관", "분류 못 함"
+REL_HIGH, REL_REF, REL_HOUSE, REL_NONE, REL_UNKNOWN = (
+    "관련 높음", "참고(절차·사후관리)", "주택 전용", "무관", "분류 못 함")
+# 보고서에 나오는 차례
+REL_ORDER = (REL_HIGH, REL_REF, REL_UNKNOWN, REL_HOUSE, REL_NONE)
+_HIGH_WORDS = ("건물", "비주거", "비영리", "종교", "사회복지시설", "복지시설", "노유자", "일반건축물")
 RELEVANCE_RULES = (
     (REL_NONE, ("서비스명", "지원대상"),
      ("축산", "양돈", "양계", "가금", "축사", "가축", "귀농", "귀향", "농업인", "농가",
       "어업", "양식", "소상공인", "견학", "주차장", "보증", "해외진출", "KS인증",
-      "농사용", "설치의무화제도", "일자리", "대학생", "중소벤처", "신성장기반")),
-    (REL_HIGH, ("서비스명", "지원대상"),
-     ("건물", "비주거", "비영리", "종교", "사회복지시설", "복지시설", "노유자", "일반건축물")),
+      "농사용", "설치의무화제도", "일자리", "대학생", "중소벤처", "신성장기반",
+      # 화석연료 설비라 대상이 아닙니다
+      "가스냉방", "가스히트펌프")),
+    # 판매용 발전사업 융자(대상이 군민·주민 개인)는 사찰 자가소비형과 다릅니다
+    (REL_NONE, ("서비스명", "지원대상", "지원내용"), ("발전사업",),
+     (("지원대상",), ("군민", "주민"))),
+    (REL_REF, ("서비스명", "지원대상"), ("이용검토", "고장", "A/S", "사후관리")),
+    # 미니태양광은 대상에 건물이 있어도 「관련 높음」이 아니라 참고로
+    (REL_REF, ("서비스명",), ("미니태양광",), (("서비스명", "지원대상"), _HIGH_WORDS)),
+    (REL_HIGH, ("서비스명", "지원대상"), _HIGH_WORDS),
     # 에너지공단 건물지원·융복합에 얹는 지방비 추가 보조
     (REL_HIGH, ("서비스명", "지원대상", "지원내용"), ("건물지원", "융복합")),
     (REL_HIGH, ("서비스명",), ("금융지원",)),
@@ -333,15 +345,26 @@ def gov24_item(row: dict, word: str) -> dict:
     return it
 
 
+def _hit(item: dict, fields, words) -> str:
+    text = " ".join(str(item.get(f, "")) for f in fields)
+    for w in RELEVANCE_IGNORE:
+        text = text.replace(w, " ")
+    return next((w for w in words if w in text), "")
+
+
 def relevance(item: dict) -> tuple:
     """(분류, 걸린 말). RELEVANCE_RULES 를 위에서부터 봅니다."""
-    for cat, fields, words in RELEVANCE_RULES:
-        text = " ".join(str(item.get(f, "")) for f in fields)
-        for w in RELEVANCE_IGNORE:
-            text = text.replace(w, " ")
-        for w in words:
-            if w in text:
-                return cat, w
+    for rule in RELEVANCE_RULES:
+        cat, fields, words = rule[:3]
+        w = _hit(item, fields, words)
+        if not w:
+            continue
+        if len(rule) > 3:
+            w2 = _hit(item, *rule[3])
+            if not w2:
+                continue
+            w = f"{w}+{w2}"
+        return cat, w
     return REL_UNKNOWN, ""
 
 
@@ -1139,22 +1162,19 @@ def _by_sido(items, ids):
 def gov24_section(items: dict, ids, rel: dict, label: str = "") -> list:
     """보조금24 사업을 사찰 관련성으로 나눠 그립니다.
 
-    관련 높음 = 표 전체 · 분류 못 함 = 표(접지 않음) · 주택 전용 = 시·도별 건수만 ·
-    무관 = 접어 둠(<details>). 시·도별 건수 표는 넷을 나란히 셉니다.
+    관련 높음·참고 = 표 전체 · 분류 못 함 = 표(접지 않음) · 주택 전용 = 시·도별
+    건수만 · 무관 = 접어 둠(<details>). 시·도별 건수 표는 다섯을 나란히 셉니다.
     """
     L = []
-    group = {c: [i for i in ids if rel[i][0] == c]
-             for c in (REL_HIGH, REL_UNKNOWN, REL_HOUSE, REL_NONE)}
+    group = {c: [i for i in ids if rel[i][0] == c] for c in REL_ORDER}
     L.append(f"### {label}시·도별 건수")
     L.append("")
     rows = []
     for s_, n in sido_counts(items, ids):
         cnt = {c: sum(1 for i in group[c] if items[i]["시도"] == s_) for c in group}
-        rows.append((s_, n, cnt[REL_HIGH] or "-", cnt[REL_HOUSE] or "-", cnt[REL_NONE] or "-",
-                     cnt[REL_UNKNOWN] or "-"))
-    rows.append(("**합계**", len(ids), len(group[REL_HIGH]), len(group[REL_HOUSE]),
-                 len(group[REL_NONE]), len(group[REL_UNKNOWN])))
-    L += md_table(("시·도", "전체", REL_HIGH, REL_HOUSE, REL_NONE, REL_UNKNOWN), rows)
+        rows.append((s_, n) + tuple(cnt[c] or "-" for c in REL_ORDER))
+    rows.append(("**합계**", len(ids)) + tuple(len(group[c]) for c in REL_ORDER))
+    L += md_table(("시·도", "전체") + REL_ORDER, rows)
     L.append("")
     head = ("시·도", "사업명", "소관기관", "대상", "지원 내용", "신청기간")
 
@@ -1165,6 +1185,17 @@ def gov24_section(items: dict, ids, rel: dict, label: str = "") -> list:
                  "건물지원·융복합·금융지원에 얹는 사업입니다.")
         L.append("")
         L += md_table(head + ("걸린 말",), _gov_rows(items, _by_sido(items, group[REL_HIGH]), True))
+    else:
+        L.append("없습니다.")
+    L.append("")
+
+    L.append(f"### {label}{REL_REF} ({len(group[REL_REF])})")
+    L.append("")
+    if group[REL_REF]:
+        L.append("지원금은 아니지만 설치 절차(이용검토)·사후관리(고장·A/S)에 쓰는 것, "
+                 "그리고 미니태양광입니다. 후보 CSV 에는 넣지 않습니다.")
+        L.append("")
+        L += md_table(head + ("걸린 말",), _gov_rows(items, _by_sido(items, group[REL_REF]), True))
     else:
         L.append("없습니다.")
     L.append("")

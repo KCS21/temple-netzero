@@ -84,8 +84,16 @@ def app() -> int:
     )
 
 
-def collect() -> int:
-    """수집_돌리기.bat - 지원사업·법령 자동 수집. 앱과는 따로 돕니다."""
+def collect(extra=()) -> int:
+    """수집_돌리기.bat - 지원사업·법령 자동 수집. 앱과는 따로 돕니다.
+
+    뒤에 붙인 말은 그대로 넘깁니다 - `python run.py collect --다시쓰기`
+    는 인터넷 없이 기준선으로 보고서만 다시 씁니다.
+    """
+    script = os.path.join(HERE, "scripts", "지원사업_수집.py")
+    if "--다시쓰기" in extra:
+        print("  기준선으로 보고서만 다시 씁니다(인터넷 안 씀).")
+        return subprocess.call([sys.executable, script] + list(extra))
     print(BAR)
     print("  지원사업·법령 자동 수집")
     print(BAR)
@@ -104,7 +112,7 @@ def collect() -> int:
     print("  다섯 곳을 차례로 훑습니다. 2~3분 걸립니다.")
     print("  (사이트에 무리가 가지 않게 요청 사이를 1초씩 쉽니다)")
     print()
-    code = subprocess.call([sys.executable, os.path.join(HERE, "scripts", "지원사업_수집.py")])
+    code = subprocess.call([sys.executable, script] + list(extra))
     print()
     if code == 0:
         print("  data\\수집 폴더의 「수집보고_날짜.md」를 열어 보십시오.")
@@ -116,7 +124,7 @@ if __name__ == "__main__":
     what = sys.argv[1] if len(sys.argv) > 1 else "check"
     try:
         code = (app() if what == "app" else
-                collect() if what == "collect" else check())
+                collect(sys.argv[2:]) if what == "collect" else check())
     except KeyboardInterrupt:
         code = 0
     raise SystemExit(code)

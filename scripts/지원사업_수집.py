@@ -58,7 +58,13 @@ NL = "\n"
 
 GOV24_URL = "https://api.odcloud.kr/api/gov24/v3/serviceList"
 GOV24_WORDS = ("태양광", "재생에너지", "신재생", "히트펌프", "지열",
-               "태양열", "단열", "그린리모델링")
+               "태양열", "단열", "그린리모델링",
+               # 2026-11-08 더함
+               "공기열", "난방전기화", "고효율", "에너지효율", "펠릿")
+# 기준선에 검색어 기록이 없을 때(첫 판)의 검색어. 이 말들로 잡히는 것이 「새로」이고,
+# 더한 말로만 잡힌 것은 「처음 수집」입니다(새로 생긴 사업이 아니라 새로 찾은 것)
+GOV24_WORDS_V1 = ("태양광", "재생에너지", "신재생", "히트펌프", "지열",
+                  "태양열", "단열", "그린리모델링")
 # 서비스명만 보면 「지원내용」에만 단어가 있는 사업을 놓칩니다
 # (태양광: 서비스명 12건, 지원내용 23건 — 2026-11-08 확인).
 GOV24_FIELDS = ("서비스명", "서비스목적요약", "지원내용", "지원대상")
@@ -141,8 +147,39 @@ ADMBYL_QUERIES = ("이격거리", "공기열")
 # 기후에너지환경부의 1차 해석. 환경부 시절 이름(me)이 그대로입니다(2026-11-08 확인)
 EXPC_TARGET = "meCgmExpc"
 EXPC_WORDS = ("재생에너지", "신재생", "태양광", "이격거리", "히트펌프", "공기열")
-ORDIN_WORDS = ("신재생에너지", "이격거리", "재생에너지")
-ORDIN_NAME_HAS = ("재생에너지", "이격거리")
+ORDIN_WORDS = ("신재생에너지", "이격거리", "재생에너지",
+               # 2026-11-08 더함
+               "기후위기 대응", "에너지 기본", "태양광", "히트펌프")
+ORDIN_WORDS_V1 = ("신재생에너지", "이격거리", "재생에너지")
+ORDIN_NAME_HAS_V1 = ("재생에너지", "이격거리")     # 첫 판의 이름 거르기
+# 조례 이름에 이 말 가운데 하나가 있어야 남깁니다(검색은 본문까지 걸려 넓습니다)
+ORDIN_NAME_HAS = ("재생에너지", "이격거리", "기후위기", "에너지 기본", "에너지기본",
+                  "태양광", "히트펌프")
+# 조례가 이보다 많으면, 더한 말(기후위기 대응·에너지 기본 등)로**만** 잡힌 조례는
+# 이름에 「지원」·「보조」가 든 것만 남깁니다. 재생에너지·이격거리 말로 잡힌 조례는
+# 그대로 둡니다(이격거리 조례는 이름에 「지원」이 없어도 꼭 봐야 합니다)
+ORDIN_CAP = 300
+ORDIN_CAP_KEEP = ("지원", "보조")
+
+# ── ⑥ 기관 공지 (제목만, 첨부는 열지 않음) ──
+NOTICE_WORDS = ("히트펌프", "공기열", "난방전기화", "복지시설", "태양광", "재생에너지",
+                "그린리모델링", "이자지원", "고효율")
+NOTICE_PAGES = 2
+MCEE = "https://www.mcee.go.kr"
+GREEN = "https://www.greenremodeling.or.kr"
+NOTICE_SOURCES = (
+    {"이름": "기후에너지환경부 보도자료", "꼴": "mcee", "menuId": "10598"},
+    {"이름": "기후에너지환경부 공지·공고", "꼴": "mcee", "menuId": "10524"},
+    {"이름": "그린리모델링 창조센터 공지", "꼴": "green", "bid": "notice"},
+)
+# 확인하고 뺀 곳. 돌 때마다 「자동으로 못 잡은 것」에 적습니다(2026-11-08 확인)
+NOTICE_SKIPPED = (
+    ("한전 에너지효율향상사업(수요관리) 공고",
+     "한전 에너지마켓플레이스(en-ter.co.kr)의 robots.txt 가 공지사항 목록(/ft/cs/nt/list.do)을 "
+     "막아 두었고, 한전 누리집(kepco.co.kr) 공지 목록은 자바스크립트로만 그려져 목록 글자가 "
+     "없습니다. 옛 home.kepco.co.kr 은 robots.txt 가 전부 막습니다. 한전 고효율기기 "
+     "지원사업은 ① 보조금24 「고효율」 검색으로 일부 잡힙니다"),
+)
 
 # ── 지원사업 문서 8장 「진단 도구가 쓰는 기준값」 ─────────────────
 # 원본: 사찰_정부지원사업_정리_20261108.docx 8장 (확인일 2026-11-07).
@@ -366,6 +403,30 @@ def relevance(item: dict) -> tuple:
             w = f"{w}+{w2}"
         return cat, w
     return REL_UNKNOWN, ""
+
+
+def split_fresh(d, items: dict, old_words, old_name_has=None) -> None:
+    """d["new"] 가운데 **예전 검색어로는 안 잡히는 것**을 d["fresh"] 로 옮깁니다.
+
+    검색어를 더하면 이미 있던 사업·조례가 처음으로 잡힙니다. 그것을 「새로」로
+    적으면 새로 생긴 것처럼 읽힙니다. 「처음 수집」으로 따로 셉니다.
+    """
+    if not d or d.get("first"):
+        return
+    old = set(old_words)
+
+    def was_tracked(i):
+        if not (set(str(items[i].get("찾은말", "")).split("·")) & old):
+            return False
+        # 이름 거르기를 넓힌 경우: 예전 거르기였으면 빠졌을 것도 「처음 수집」
+        # (예전 「재생에너지」 검색도 본문으로 「에너지 기본 조례」를 냈지만 이름에서 걸렀습니다)
+        if old_name_has is not None:
+            name = str(items[i].get("이름", "")).replace("·", "").replace("ㆍ", "")
+            return any(w in name for w in old_name_has)
+        return True
+    fresh = [i for i in d["new"] if not was_tracked(i)]
+    d["fresh"] = fresh
+    d["new"] = [i for i in d["new"] if i not in fresh]
 
 
 def collect_gov24(f: Fetcher, key: str, raw: dict, problems: list) -> dict:
@@ -983,6 +1044,7 @@ def collect_law(f: Fetcher, oc: str, raw: dict, problems: list) -> dict:
                 "해석기관": r.get("해석기관명", ""), "링크": law_link(link),
             }
 
+    words_of = {}
     for query in ORDIN_WORDS:
         for r in run("자치법규", "ordin", query):
             name = r.get("자치법규명", "")
@@ -990,13 +1052,135 @@ def collect_law(f: Fetcher, oc: str, raw: dict, problems: list) -> dict:
                 continue
             if not any(w in name.replace("·", "").replace("ㆍ", "") for w in ORDIN_NAME_HAS):
                 continue
-            groups["자치법규"][str(r.get("자치법규ID"))] = {
+            oid = str(r.get("자치법규ID"))
+            words_of.setdefault(oid, [])
+            if query not in words_of[oid]:
+                words_of[oid].append(query)
+            groups["자치법규"][oid] = {
                 "이름": name, "지자체": r.get("지자체기관명", ""),
                 "공포일자": r.get("공포일자", ""), "시행일자": r.get("시행일자", ""),
                 "공포번호": r.get("공포번호", ""), "제개정": r.get("제개정구분명", ""),
                 "링크": law_link(r.get("자치법규상세링크", "")),
+                "찾은말": "·".join(words_of[oid]),
             }
-    return {"groups": groups, "failed": failed}
+    cap = ordin_cap(groups["자치법규"])
+    return {"groups": groups, "failed": failed, "ordin_cap": cap}
+
+
+def ordin_cap(items: dict) -> dict:
+    """조례가 ORDIN_CAP 보다 많으면 더한 말로만 잡힌 것을 「지원」·「보조」로 거릅니다.
+
+    `items` 를 그 자리에서 줄이고 {전체, 남김, 뺌, 걸렀나} 를 돌려줍니다.
+    """
+    total = len(items)
+    if total <= ORDIN_CAP:
+        return {"전체": total, "남김": total, "뺌": 0, "걸렀나": False}
+    core = set(ORDIN_WORDS_V1)
+    drop = [k for k, it in items.items()
+            if not (set(str(it.get("찾은말", "")).split("·")) & core)
+            and not any(w in it.get("이름", "") for w in ORDIN_CAP_KEEP)]
+    for k in drop:
+        del items[k]
+    return {"전체": total, "남김": len(items), "뺌": len(drop), "걸렀나": True}
+
+
+# ── ⑥ 기관 공지 ───────────────────────────────────────────────
+
+def mcee_rows(page_html: str, menu_id: str) -> list:
+    """기후에너지환경부 게시판 목록 -> [{id, 제목, 날짜, 링크}].
+
+    줄마다 담당자 이름이 있으나 **가져오지 않습니다**(제목·날짜·링크만).
+    링크에서 jsessionid 를 뗍니다(남이 열면 남의 세션이 됩니다).
+    """
+    out = []
+    body = _tbody(page_html, "board/read.do")
+    for tr in re.split(r"<tr[\s>]", body)[1:]:
+        a = re.search(r"<a\s[^>]*board/read\.do[^>]*>", tr)
+        if not a:
+            continue
+        tag = a.group(0)
+        t = re.search(r'title="([^"]*)"', tag)
+        h = re.search(r'href="([^"]*)"', tag)
+        if not h:
+            continue
+        href = html.unescape(h.group(1))
+        bid = re.search(r"boardId=(\d+)", href)
+        master = re.search(r"boardMasterId=(\d+)", href)
+        if not bid:
+            continue
+        title = t.group(1) if t else clean(tr[a.end():tr.find("</a>", a.end())])
+        dates = re.findall(r"<td[^>]*>\s*(\d{4}-\d{2}-\d{2})\s*</td>", tr)
+        out.append({
+            "id": f"mcee{menu_id}-{bid.group(1)}",
+            "제목": clean(title),
+            "날짜": dates[0] if dates else "",
+            "링크": (f"{MCEE}/home/web/board/read.do?menuId={menu_id}&boardId={bid.group(1)}"
+                     + (f"&boardMasterId={master.group(1)}" if master else "")),
+        })
+    return out
+
+
+def green_rows(page_html: str, bid: str = "notice") -> list:
+    """그린리모델링 창조센터 게시판 목록 -> [{id, 제목, 날짜, 링크}]."""
+    out = []
+    body = _tbody(page_html, "onView(")
+    for tr in re.split(r"<tr[\s>]", body)[1:]:
+        m = re.search(r"onView\((\d+)\)", tr)
+        a = re.search(r"<a[^>]*>(.*?)</a>", tr, re.S)
+        if not m or not a:
+            continue
+        dates = re.findall(r"(\d{4}-\d{2}-\d{2})", tr)
+        out.append({
+            "id": f"green-{bid}-{m.group(1)}",
+            "제목": clean(a.group(1)),
+            "날짜": dates[-1] if dates else "",
+            "링크": f"{GREEN}/n1/board/boardView.asp?bid={bid}&nSeq={m.group(1)}",
+        })
+    return out
+
+
+def notice_hit(title: str) -> str:
+    return next((w for w in NOTICE_WORDS if w in (title or "")), "")
+
+
+def collect_notices(f, run_dir: str, problems: list) -> dict:
+    """세 곳 목록 1~2쪽에서 제목에 NOTICE_WORDS 가 든 글만. 한 곳이 실패해도 계속.
+
+    돌려주는 `read` 는 **목록을 한 쪽이라도 읽은 곳**입니다. 못 읽은 곳은 기준선을
+    지난번 것 그대로 둡니다.
+    """
+    items, read_ok, rows_seen = {}, [], {}
+    for srcd in NOTICE_SOURCES:
+        name, got = srcd["이름"], 0
+        for page in range(1, NOTICE_PAGES + 1):
+            try:
+                if srcd["꼴"] == "mcee":
+                    text = f.get(f"{MCEE}/home/web/index.do",
+                                 params={"menuId": srcd["menuId"], "pagerOffset": (page - 1) * 10})
+                    rows = mcee_rows(text, srcd["menuId"])
+                else:
+                    text = f.get(f"{GREEN}/n1/board/boardList.asp",
+                                 params={"bid": srcd["bid"], "page": page})
+                    rows = green_rows(text, srcd["bid"])
+            except FetchError as e:
+                problems.append(f"기관 공지 「{name}」 {page}쪽 - {e}")
+                break
+            save(os.path.join(run_dir, "기관공지", f"{_safe(name)}_{page}.html"), text)
+            if not rows:
+                problems.append(f"기관 공지 「{name}」 {page}쪽 - 목록 칸을 찾지 못했습니다"
+                                "(사이트 모양이 바뀌었을 수 있음)")
+                break
+            got += len(rows)
+            for r in rows:
+                w = notice_hit(r["제목"])
+                if w:
+                    items[r["id"]] = dict(r, 출처=name, 찾은말=w)
+        rows_seen[name] = got
+        if got:
+            read_ok.append(name)
+    for name, why in NOTICE_SKIPPED:
+        problems.append(f"기관 공지 「{name}」 - 뺐습니다. {why}")
+    return {"items": items, "read": read_ok, "rows": rows_seen}
 
 
 LAW_COMPARE = {
@@ -1293,13 +1477,18 @@ def build_report(ctx: dict) -> str:
     rows = []
     for name, d, n in ctx["summary"]:
         if d is None:
-            rows.append((name, n, "못 읽음", "-", "-"))
+            rows.append((name, n, "못 읽음", "-", "-", "-"))
         elif d["first"]:
-            rows.append((name, n, f"기준선 {len(d['new'])}", "-", "-"))
+            label = f"기준선 {len(d['new'])}" if first else "-"
+            rows.append((name, n, label, "-", "-", "-" if first else f"{len(d['new'])}"))
         else:
             rows.append((name, n, len(d["new"]), len(d["changed"]),
-                         "안 셈(일부 실패)" if d.get("partial") else len(d["removed"])))
-    L += md_table(("어디", "이번에 본 것", "새로", "바뀜", "사라짐"), rows)
+                         "안 셈(일부 실패)" if d.get("partial") else len(d["removed"]),
+                         len(d.get("fresh", [])) or "-"))
+    L += md_table(("어디", "이번에 본 것", "새로", "바뀜", "사라짐", "처음 수집"), rows)
+    L.append("")
+    L.append("「처음 수집」은 이번에 **검색어나 수집처를 더해서 처음 모은 것**입니다. "
+             "새로 생긴 것이 아니라 새로 찾은 것이라 아래 목록에 늘어놓지 않고 건수만 적습니다.")
     L.append("")
 
     # ① 보조금24
@@ -1321,6 +1510,21 @@ def build_report(ctx: dict) -> str:
             L.append("")
         if show:
             L += gov24_section(items, show, rel, "" if first else "새로 잡힌 ")
+        fresh = d.get("fresh", [])
+        if fresh:
+            cnt = {}
+            for i in fresh:
+                cnt[rel[i][0]] = cnt.get(rel[i][0], 0) + 1
+            L.append(f"**처음 수집: {len(fresh)}건** (더한 검색어로 처음 잡힘) - " +
+                     " · ".join(f"{c} {cnt[c]}" for c in REL_ORDER if c in cnt))
+            L.append("")
+            hi = [i for i in fresh if rel[i][0] == REL_HIGH]
+            if hi:
+                L.append(f"그 가운데 「{REL_HIGH}」:")
+                L.append("")
+                L += md_table(("시·도", "사업명", "소관기관", "대상", "지원 내용", "신청기간", "걸린 말"),
+                              _gov_rows(items, _by_sido(items, hi), True))
+                L.append("")
         if d["changed"]:
             L.append("### 내용이 바뀐 사업")
             L.append("")
@@ -1414,6 +1618,8 @@ def build_report(ctx: dict) -> str:
         L.append("")
     else:
         for grp, d in law["d"].items():
+            if grp == "자치법규":
+                continue
             items = law["groups"][grp]
             L.append(f"### {grp} ({len(items)})")
             L.append("")
@@ -1453,6 +1659,9 @@ def build_report(ctx: dict) -> str:
                 L.append("달라진 것이 없습니다.")
                 L.append("")
 
+    L += ordin_section(law, first)
+    L += notice_section(ctx.get("notice"), first)
+
     # ⑥ CSV 후보
     L.append("## 지원사업.csv 후보 줄")
     L.append("")
@@ -1486,6 +1695,105 @@ def build_report(ctx: dict) -> str:
     L.append("이 보고서는 `scripts/지원사업_수집.py` 가 만들었습니다. 숫자는 공고문 글자에서 "
              "자동으로 뽑은 것이라 **신청 전 원문을 확인**하십시오.")
     return NL.join(L) + NL
+
+
+def ordin_section(law: dict, first: bool) -> list:
+    """「지자체 지원 근거 조례 — 새로 생김 / 바뀜」 표."""
+    L = ["## 지자체 지원 근거 조례 — 새로 생김 / 바뀜", ""]
+    L.append("찾은 말: " + ", ".join(ORDIN_WORDS) + " · 조례만, 이름에 " +
+             "·".join(ORDIN_NAME_HAS) + " 가운데 하나가 든 것")
+    L.append("")
+    d = (law.get("d") or {}).get("자치법규") if law.get("d") else None
+    items = (law.get("groups") or {}).get("자치법규", {})
+    cap = law.get("ordin_cap")
+    if cap and cap.get("걸렀나"):
+        L.append(f"> 조례가 **{cap['전체']}건**으로 {ORDIN_CAP}건을 넘어, 더한 말"
+                 f"({', '.join(w for w in ORDIN_WORDS if w not in ORDIN_WORDS_V1)})로만 잡힌 조례는 "
+                 f"이름에 「{'」·「'.join(ORDIN_CAP_KEEP)}」가 든 것만 남겼습니다. "
+                 f"**{cap['뺌']}건을 빼고 {cap['남김']}건**을 봅니다. "
+                 f"{', '.join(ORDIN_WORDS_V1)} 로 잡힌 조례는 거르지 않습니다.")
+        L.append("")
+    if d is None:
+        L.append("이번에 읽지 못했습니다.")
+        L.append("")
+        return L
+    if d["first"]:
+        L.append(f"**기준선 {len(items)}건.** 지자체별: " +
+                 " · ".join(f"{s} {n}" for s, n in _ordin_by_sido(items)))
+        L.append("")
+        ids = sorted(items, key=lambda i: items[i]["공포일자"], reverse=True)[:25]
+        L.append(f"최근 공포 {len(ids)}건:")
+        L.append("")
+        L += _law_rows("자치법규", items, ids)
+        L.append("")
+        return L
+    rows = []
+    for i in sorted(d["new"], key=lambda i: items[i]["공포일자"], reverse=True):
+        it = items[i]
+        rows.append(("새로 생김", f"[{md_cell(it['이름'])}]({it['링크']})", it["지자체"],
+                     _date(it["공포일자"]), _date(it["시행일자"]), it["제개정"], "-"))
+    for i, ch in d["changed"]:
+        it = items[i]
+        rows.append(("바뀜", f"[{md_cell(it['이름'])}]({it['링크']})", it["지자체"],
+                     _date(it["공포일자"]), _date(it["시행일자"]), it["제개정"],
+                     "; ".join(f"{f} {_date(a)}→{_date(b)}" for f, (a, b) in ch.items())))
+    if rows:
+        L += md_table(("구분", "조례", "지자체", "공포", "시행", "제개정", "바뀐 것"), rows)
+    else:
+        L.append("새로 생기거나 바뀐 조례가 없습니다.")
+    L.append("")
+    fresh = d.get("fresh", [])
+    if fresh:
+        L.append(f"**처음 수집: {len(fresh)}건** (더한 검색어로 처음 잡힘. 지자체별: " +
+                 " · ".join(f"{s} {n}" for s, n in _ordin_by_sido({i: items[i] for i in fresh})) + ")")
+        L.append("")
+    if d["removed"] and not d.get("partial"):
+        L.append("**목록에서 빠진 조례**: " + ", ".join(
+            md_cell((law.get("prev") or {}).get("자치법규", {}).get(i, {}).get("이름", i))
+            for i in d["removed"]))
+        L.append("")
+    return L
+
+
+def notice_section(notice, first: bool) -> list:
+    """⑥ 기관 공지 - 제목에 NOTICE_WORDS 가 든 글 가운데 새로 나온 것만."""
+    L = ["## ⑥ 기관 공지 (제목만 · 첨부는 열지 않음)", ""]
+    L.append(f"목록 1~{NOTICE_PAGES}쪽에서 제목에 " + "·".join(NOTICE_WORDS) +
+             " 가운데 하나가 든 글만 봅니다.")
+    L.append("")
+    if not notice:
+        L.append("이번에 읽지 못했습니다.")
+        L.append("")
+        return L
+    for srcd in NOTICE_SOURCES:
+        name = srcd["이름"]
+        b = notice["by"].get(name)
+        L.append(f"### {name}")
+        L.append("")
+        if not b or b["d"] is None:
+            L.append("이번에 읽지 못했습니다. 아래 「자동으로 못 잡은 것」을 보십시오.")
+            L.append("")
+            continue
+        d, items = b["d"], b["items"]
+        if d["first"]:
+            L.append(f"**처음 수집: {len(items)}건** (목록 {b['rows']}줄 가운데). "
+                     "다음 실행부터 새로 나온 글만 적습니다.")
+            L.append("")
+            continue
+        ids = sorted(d["new"], key=lambda i: (items[i]["날짜"], i), reverse=True)
+        if ids:
+            L += md_table(("날짜", "제목", "걸린 말"),
+                          [(items[i]["날짜"], f"[{md_cell(items[i]['제목'])}]({items[i]['링크']})",
+                            items[i]["찾은말"]) for i in ids])
+        else:
+            L.append("새로 나온 글이 없습니다.")
+        L.append("")
+    for name, _ in NOTICE_SKIPPED:
+        L.append(f"### {name}")
+        L.append("")
+        L.append("수집하지 않습니다. 까닭은 「자동으로 못 잡은 것」에 있습니다.")
+        L.append("")
+    return L
 
 
 def _ordin_by_sido(items: dict) -> list:
@@ -1524,6 +1832,47 @@ def _law_rows(grp: str, items: dict, ids) -> list:
 
 # ── 한 번 돌리기 ───────────────────────────────────────────────
 
+def notice_step(f, src: dict, run_dir: str, problems: list, now) -> dict:
+    """⑥ 기관 공지를 모으고 출처마다 기준선과 견줍니다.
+
+    {items, by: {출처: {"d": diff 또는 None(못 읽음), "rows": 본 줄 수}}}.
+    기준선에 없던 출처는 diff 가 「first」 -> 보고서에 「처음 수집: N건」.
+    """
+    prev = src.get("기관공지") or {}
+    prev_items = prev.get("items", {})
+    prev_read = set(prev.get("출처", []))
+    out = {"items": {}, "by": {}}
+    try:
+        r = collect_notices(f, run_dir, problems)
+    except Exception as e:
+        problems.append(f"기관 공지 - 처리하다 멈췄습니다({type(e).__name__}: {_SECRETS.hide(str(e))[:150]})")
+        r = {"items": {}, "read": [], "rows": {}}
+    keep = dict(prev_items)
+    for srcd in NOTICE_SOURCES:
+        name = srcd["이름"]
+        cur = {k: v for k, v in r["items"].items() if v["출처"] == name}
+        if name not in r["read"]:
+            out["by"][name] = {"d": None, "rows": 0, "items": {}}
+            continue
+        old = {k: v for k, v in prev_items.items() if v.get("출처") == name}
+        d = diff(old if name in prev_read else None, cur, ())
+        d["removed"] = []          # 1~2쪽 창이 밀려 빠지는 것은 알릴 일이 아닙니다
+        out["by"][name] = {"d": d, "rows": r["rows"].get(name, 0), "items": cur}
+        keep.update(cur)
+        out["items"].update(cur)
+    src["기관공지"] = {"items": keep, "출처": sorted(prev_read | set(r["read"])),
+                    "저장": now.isoformat()}
+    return out
+
+
+def notice_summary(notice: dict) -> list:
+    rows = []
+    for srcd in NOTICE_SOURCES:
+        b = notice["by"].get(srcd["이름"], {"d": None, "items": {}})
+        rows.append((f"⑥ {srcd['이름']}", b["d"], len(b["items"])))
+    return rows
+
+
 def _kst_now() -> _dt.datetime:
     return _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=9)))
 
@@ -1547,7 +1896,7 @@ def run(keys_path: str, out_dir: str, fetcher=None, now=None, log=print) -> str:
     problems, raw = [], {}
 
     # ①
-    log("  [1/4] 보조금24 ...")
+    log("  [1/5] 보조금24 ...")
     gov = {"items": {}, "d": None, "prev": (src.get("보조금24") or {}).get("items", {})}
     if not svc:
         problems.append(f"보조금24 - 키.txt 에 「{SERVICE}」 키가 없습니다")
@@ -1559,15 +1908,17 @@ def run(keys_path: str, out_dir: str, fetcher=None, now=None, log=print) -> str:
                 gov["d"] = diff(src.get("보조금24", {}).get("items") if "보조금24" in src else None,
                                 r["items"], GOV24_COMPARE)
                 gov["d"]["partial"] = r["partial"]
+                split_fresh(gov["d"], r["items"],
+                            (src.get("보조금24") or {}).get("말") or GOV24_WORDS_V1)
                 keep = dict(gov["prev"]) if r["partial"] else {}
                 keep.update(r["items"])
-                src["보조금24"] = {"items": keep, "저장": now.isoformat()}
+                src["보조금24"] = {"items": keep, "말": list(GOV24_WORDS), "저장": now.isoformat()}
         except Exception as e:
             problems.append(f"보조금24 - 처리하다 멈췄습니다({type(e).__name__}: {_SECRETS.hide(str(e))[:150]})")
     save_json(os.path.join(run_dir, "보조금24.json"), raw.get("보조금24", []))
 
     # ②
-    log("  [2/4] 에너지공단 사업공고 ...")
+    log("  [2/5] 에너지공단 사업공고 ...")
     knrec = {"items": {}, "d": None, "추출": {}, "opened_now": set()}
     try:
         prev_k = src.get("에너지공단")
@@ -1588,7 +1939,7 @@ def run(keys_path: str, out_dir: str, fetcher=None, now=None, log=print) -> str:
     save_json(os.path.join(run_dir, "에너지공단_추출.json"), knrec["추출"])
 
     # ③
-    log("  [3/4] 입법예고 ...")
+    log("  [3/5] 입법예고 ...")
     lm = {"items": {}, "d": None}
     try:
         prev_l = src.get("입법예고")
@@ -1605,7 +1956,7 @@ def run(keys_path: str, out_dir: str, fetcher=None, now=None, log=print) -> str:
     save_json(os.path.join(run_dir, "입법예고.json"), lm["items"])
 
     # ④
-    log("  [4/4] 국가법령정보 ...")
+    log("  [4/5] 국가법령정보 ...")
     law = {"groups": {}, "d": None, "prev": {}}
     if not oc:
         problems.append(f"국가법령정보 - 키.txt 에 「{LAWOC}」 가 없습니다")
@@ -1625,17 +1976,35 @@ def run(keys_path: str, out_dir: str, fetcher=None, now=None, log=print) -> str:
                 pg = (prev_g or {}).get(grp) if prev_g is not None else None
                 d = diff(pg, cur, LAW_COMPARE[grp])
                 d["partial"] = calls_failed > 0
+                if grp == "자치법규":
+                    split_fresh(d, cur, (src.get("법령") or {}).get("조례말") or ORDIN_WORDS_V1,
+                                (src.get("법령") or {}).get("조례이름") or ORDIN_NAME_HAS_V1)
+                    # 상한으로 거른 조례가 「사라짐」으로 읽히지 않게, 이번에 안 모은 말로만
+                    # 잡혔던 것은 사라짐에서 뺍니다
+                    if r["ordin_cap"]["걸렀나"]:
+                        core = set(ORDIN_WORDS_V1)
+                        d["removed"] = [i for i in d["removed"]
+                                        if set(str(pg.get(i, {}).get("찾은말", "")).split("·")) & core
+                                        or not pg.get(i, {}).get("찾은말")]
                 law["d"][grp] = d
                 keep = dict(pg or {}) if calls_failed else {}
                 keep.update(cur)
                 newsrc[grp] = keep
+            law["ordin_cap"] = r["ordin_cap"]
             if any(v is not None for v in law["d"].values()):
-                src["법령"] = {"groups": newsrc, "저장": now.isoformat()}
+                src["법령"] = {"groups": newsrc, "조례말": list(ORDIN_WORDS),
+                              "조례이름": list(ORDIN_NAME_HAS),
+                              "저장": now.isoformat()}
             else:
                 law["d"] = None
         except Exception as e:
             problems.append(f"국가법령정보 - 처리하다 멈췄습니다({type(e).__name__}: {_SECRETS.hide(str(e))[:150]})")
     save_json(os.path.join(run_dir, "법령.json"), raw.get("법령", []))
+
+    # ⑥ 기관 공지
+    log("  [5/5] 기관 공지 ...")
+    notice = notice_step(f, src, run_dir, problems, now)
+    save_json(os.path.join(run_dir, "기관공지.json"), notice["items"])
 
     # ⑤⑥
     cmp_ = compare_base(knrec["추출"] or (src.get("에너지공단") or {}).get("추출", {}))
@@ -1657,12 +2026,18 @@ def run(keys_path: str, out_dir: str, fetcher=None, now=None, log=print) -> str:
             summary.append((f"④ {grp}", d, len(law["groups"].get(grp, {}))))
     else:
         summary.append(("④ 국가법령정보", None, 0))
+    summary += notice_summary(notice)
 
     ctx = {"today": today, "stamp": now.strftime("%Y-%m-%d %H:%M"), "first": first,
            "requests": f.count, "base": cmp_, "summary": summary, "gov": gov,
-           "knrec": knrec, "lawmaking": lm, "law": law, "csv": cand, "problems": problems}
+           "knrec": knrec, "lawmaking": lm, "law": law, "notice": notice,
+           "csv": cand, "problems": problems}
     report = build_report(ctx)
     rpath = os.path.join(out_dir, f"수집보고_{today.strftime('%Y%m%d')}.md")
+    n = 2
+    while os.path.exists(rpath):       # 같은 날 두 번 돌면 앞 보고서를 덮지 않습니다
+        rpath = os.path.join(out_dir, f"수집보고_{today.strftime('%Y%m%d')}_{n}.md")
+        n += 1
     save(rpath, report)
 
     base = {"저장": now.isoformat(), "sources": src}
@@ -1700,10 +2075,17 @@ def rebuild(out_dir: str, now=None) -> str:
     summary = [("① 보조금24", gov["d"], len(gi)), ("② 에너지공단 공고", knrec["d"], len(knrec["items"])),
                ("③ 입법예고", lm["d"], len(lmi))]
     summary += [(f"④ {g}", d, len(lg[g])) for g, d in (law["d"] or {}).items()]
+    ni = (src.get("기관공지") or {}).get("items", {})
+    notice = {"items": ni, "by": {}}
+    for srcd in NOTICE_SOURCES:
+        cur = {k: v for k, v in ni.items() if v.get("출처") == srcd["이름"]}
+        notice["by"][srcd["이름"]] = {"d": diff(None, cur, ()), "rows": len(cur), "items": cur}
+    summary += notice_summary(notice)
     stamp = (base.get("저장") or "")[:16].replace("T", " ")
     ctx = {"today": today, "stamp": now.strftime("%Y-%m-%d %H:%M"), "first": True,
            "rebuilt": stamp, "requests": 0, "base": cmp_, "summary": summary, "gov": gov,
-           "knrec": knrec, "lawmaking": lm, "law": law, "csv": cand, "problems": []}
+           "knrec": knrec, "lawmaking": lm, "law": law, "notice": notice,
+           "csv": cand, "problems": []}
     rpath = os.path.join(out_dir, f"수집보고_{today.strftime('%Y%m%d')}_다시씀.md")
     save(rpath, build_report(ctx))
     if cand:

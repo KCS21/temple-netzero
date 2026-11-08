@@ -231,6 +231,114 @@ ok("CSV 쉼표·따옴표", c.csv_line(['a,b', 'say "hi"', None]) == '"a,b","say
 ok("설비 짐작", c.equip_of("히트펌프 지원") == "공기열" and c.equip_of("주택 태양광") == "태양광")
 
 
+print("== ⑥ 기관 공지")
+mrows = c.mcee_rows(sample("기관공지_기후부_보도자료.html"), "10598")
+ok("기후부 보도자료 10줄", len(mrows) == 10, len(mrows))
+ok("줄마다 id·제목·날짜·링크", all(r["id"].startswith("mcee10598-") and r["제목"]
+                                and re.fullmatch(r"\d{4}-\d{2}-\d{2}", r["날짜"]) for r in mrows))
+ok("링크에 jsessionid 가 없고 boardId 가 있다",
+   all("jsessionid" not in r["링크"] and "boardId=" in r["링크"] for r in mrows))
+ok("담당자 이름은 가져오지 않는다", all(set(r) == {"id", "제목", "날짜", "링크"} for r in mrows))
+grows = c.green_rows(sample("기관공지_그린리모델링.html"))
+ok("그린리모델링 공지 20줄", len(grows) == 20, len(grows))
+ok("그린리모델링 링크·날짜", all("boardView.asp?bid=notice&nSeq=" in r["링크"]
+                            and re.fullmatch(r"\d{4}-\d{2}-\d{2}", r["날짜"]) for r in grows))
+ok("모양이 다르면 빈 목록", c.mcee_rows("<html></html>", "1") == [] and c.green_rows("<p>x</p>") == [])
+ok("제목 검색어", c.notice_hit("2027년 공공건축물 그린리모델링 사업") == "그린리모델링"
+   and c.notice_hit("자동차 시험시설 수요조사") == "")
+
+
+class NoticeFake:
+    """기관 공지 목록만 돌려주는 가짜. `extra` 를 그린리모델링 1쪽 맨 위에 끼웁니다."""
+
+    def __init__(self, extra="", bad=()):
+        self.count, self.extra, self.bad, self.secrets = 0, extra, set(bad), None
+
+    def get(self, url, params=None, **kw):
+        self.count += 1
+        if any(b in url for b in self.bad):
+            raise c.FetchError("시험용 실패")
+        if url.startswith(c.MCEE):
+            return sample("기관공지_기후부_보도자료.html")
+        h = sample("기관공지_그린리모델링.html")
+        if self.extra and params.get("page") == 1:
+            at = h.find("<tr", h.find("<tbody"))
+            h = h[:at] + (f"<tr onClick='onView(9999)'><td>1</td><td><a href=\"#\">{self.extra}</a></td>"
+                          "<td>공지</td><td>2026-12-01</td></tr>") + h[at:]
+        return h
+
+
+_src, _probs = {}, []
+_tmpn = tempfile.mkdtemp()
+try:
+    n1 = c.notice_step(NoticeFake(), _src, _tmpn, _probs, dt.datetime(2026, 11, 8))
+    g1 = n1["by"]["그린리모델링 창조센터 공지"]
+    ok("처음 도는 수집처는 「처음 수집」(first)", g1["d"]["first"] and len(g1["items"]) > 0)
+    ok("못 잡은 곳(한전)을 「못 잡은 것」에 적는다", any("한전" in x and "robots.txt" in x for x in _probs))
+    n2 = c.notice_step(NoticeFake(extra="2027년 히트펌프 난방전기화 지원 안내"), _src, _tmpn, [],
+                       dt.datetime(2026, 12, 8))
+    g2 = n2["by"]["그린리모델링 창조센터 공지"]
+    ok("두 번째는 새로 나온 글만", g2["d"]["new"] == ["green-notice-9999"], g2["d"]["new"])
+    ok("새 글의 걸린 말", g2["items"]["green-notice-9999"]["찾은말"] == "히트펌프")
+    ok("기후부는 새 글 없음", n2["by"]["기후에너지환경부 보도자료"]["d"]["new"] == [])
+    before_n = len(_src["기관공지"]["items"])
+    _p3 = []
+    n3 = c.notice_step(NoticeFake(bad=("greenremodeling",)), _src, _tmpn, _p3, dt.datetime(2026, 12, 9))
+    ok("한 곳이 실패하면 그곳만 「못 읽음」", n3["by"]["그린리모델링 창조센터 공지"]["d"] is None
+       and n3["by"]["기후에너지환경부 보도자료"]["d"] is not None)
+    ok("실패한 곳의 기준선은 그대로", len(_src["기관공지"]["items"]) == before_n)
+    sec = "\n".join(c.notice_section(n1, False))
+    ok("보고서: 처음 수집은 건수만", "**처음 수집:" in sec and "boardView.asp" not in sec)
+    sec2 = "\n".join(c.notice_section(n2, False))
+    ok("보고서: 새 글은 표로", "2027년 히트펌프 난방전기화 지원 안내" in sec2)
+finally:
+    shutil.rmtree(_tmpn)
+
+print("== 조례 상한 · 처음 수집")
+
+
+def _ord(n, name, words):
+    return {str(n): {"이름": name, "찾은말": words, "공포일자": "20260101", "지자체": "경기도"}}
+
+
+_o = {}
+for n in range(250):
+    _o.update(_ord(n, f"가시 기후위기 대응 기본 조례 {n}", "기후위기 대응"))
+for n in range(250, 300):
+    _o.update(_ord(n, f"나군 기후위기 대응 지원 조례 {n}", "기후위기 대응"))
+for n in range(300, 310):
+    _o.update(_ord(n, f"다시 재생에너지 발전설비 이격거리 조례 {n}", "이격거리"))
+_small = {k: v for k, v in list(_o.items())[:100]}
+cap0 = c.ordin_cap(_small)
+ok("300건 이하면 거르지 않는다", not cap0["걸렀나"] and len(_small) == 100)
+cap1 = c.ordin_cap(_o)
+ok("300건 넘으면 걸러 낸다", cap1["걸렀나"] and cap1["전체"] == 310)
+ok("더한 말로만 잡힌 것은 「지원」·「보조」가 든 것만 남김", sum(1 for v in _o.values()
+   if "기후위기" in v["이름"]) == 50 and all("지원" in v["이름"] for v in _o.values() if "기후위기" in v["이름"]))
+ok("이격거리 조례는 「지원」이 없어도 남김", sum(1 for v in _o.values() if "이격거리" in v["이름"]) == 10)
+ok("남김·뺌 건수", cap1["남김"] == 60 and cap1["뺌"] == 250, cap1)
+
+_items = {"a": {"찾은말": "재생에너지"}, "b": {"찾은말": "기후위기 대응"}, "c": {"찾은말": "태양광·이격거리"}}
+_d = {"first": False, "new": ["a", "b", "c"], "changed": [], "removed": []}
+c.split_fresh(_d, _items, c.ORDIN_WORDS_V1)
+ok("예전 말로 잡히면 「새로」, 더한 말로만 잡히면 「처음 수집」", _d["new"] == ["a", "c"] and _d["fresh"] == ["b"])
+_items2 = {"e": {"찾은말": "재생에너지", "이름": "가시 에너지 기본 조례"},
+           "f": {"찾은말": "재생에너지", "이름": "나시 재생에너지 보급 조례"}}
+_d2 = {"first": False, "new": ["e", "f"], "changed": [], "removed": []}
+c.split_fresh(_d2, _items2, c.ORDIN_WORDS_V1, c.ORDIN_NAME_HAS_V1)
+ok("예전 말로 잡혀도 예전 이름 거르기에서 빠졌을 조례는 「처음 수집」",
+   _d2["new"] == ["f"] and _d2["fresh"] == ["e"])
+_g = {"x": {"찾은말": "고효율"}, "y": {"찾은말": "태양광·고효율"}}
+_dg = {"first": False, "new": ["x", "y"], "changed": [], "removed": []}
+c.split_fresh(_dg, _g, c.GOV24_WORDS_V1)
+ok("보조금24 도 같은 규칙", _dg["new"] == ["y"] and _dg["fresh"] == ["x"])
+ok("더한 검색어가 들어 있다", all(w in c.GOV24_WORDS for w in ("공기열", "난방전기화", "고효율", "에너지효율", "펠릿"))
+   and all(w in c.ORDIN_WORDS for w in ("기후위기 대응", "에너지 기본", "태양광", "히트펌프")))
+ok("새 검색어로 잡힌 농어업·축사·주택은 그대로 무관·주택 전용",
+   R({"서비스명": "고효율 소형 농기계 지원", "지원대상": "농업경영체등록을 한 농업인"})[0] == c.REL_NONE
+   and R({"서비스명": "가축분뇨 퇴비 부숙용 톱밥 지원", "지원대상": "한우 농가"})[0] == c.REL_NONE
+   and R({"서비스명": "목재펠릿 연소기 보급 지원", "지원대상": "1세대 당 1대"})[0] == c.REL_HOUSE)
+
 print("== data/지원사업.csv (수정대기 #8 원본)")
 import codecs
 import csv
@@ -405,6 +513,9 @@ try:
     ok("다시 쓴 안내", "기준선에서 다시 쓴 보고서" in reb and "첫 실행입니다" not in reb)
     ok("관련성으로 나뉜다", "### 관련 높음 (1)" in reb and "<summary>무관" in reb)
     ok("기준선은 그대로", io.open(os.path.join(out, "기준선.json"), encoding="utf-8").read() == snap)
+    r_same = c.run(kp, out, fetcher=Fake(), now=dt.datetime(2026, 12, 8, 15, 0), log=lambda *_: None)
+    ok("같은 날 두 번 돌면 _2 로 (앞 보고서를 덮지 않음)",
+       os.path.basename(r_same) == "수집보고_20261208_2.md" and os.path.exists(r2))
     try:
         c.rebuild(os.path.join(tmp, "없는곳"))
         ok("기준선이 없으면 알림", False)

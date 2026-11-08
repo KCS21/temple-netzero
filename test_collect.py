@@ -231,6 +231,40 @@ ok("CSV 쉼표·따옴표", c.csv_line(['a,b', 'say "hi"', None]) == '"a,b","say
 ok("설비 짐작", c.equip_of("히트펌프 지원") == "공기열" and c.equip_of("주택 태양광") == "태양광")
 
 
+print("== data/지원사업.csv (수정대기 #8 원본)")
+import codecs
+import csv
+_sp = os.path.join(HERE, "data", "지원사업.csv")
+_raw = open(_sp, "rb").read()
+ok("UTF-8 BOM 으로 시작 (엑셀에서 한글이 안 깨짐)", _raw.startswith(codecs.BOM_UTF8))
+_rows = list(csv.reader(io.open(_sp, encoding="utf-8-sig", newline="")))
+ok("머리줄 11열이 수집 후보 형식과 같다", tuple(_rows[0]) == c.CSV_COLUMNS, _rows[0])
+_body = [r for r in _rows[1:] if any(x.strip() for x in r)]
+ok("내용 7줄", len(_body) == 7, len(_body))
+ok("줄마다 11열", all(len(r) == 11 for r in _body), [len(r) for r in _body])
+_col = {n: i for i, n in enumerate(c.CSV_COLUMNS)}
+
+
+def _is_date(v):
+    try:
+        return bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", v)) and dt.date.fromisoformat(v) is not None
+    except ValueError:
+        return False
+
+
+ok("확인일이 날짜(YYYY-MM-DD)", all(_is_date(r[_col["확인일"]]) for r in _body),
+   [r[_col["확인일"]] for r in _body])
+ok("근거 수준이 원문·기사·옛자료·교수님 중 하나",
+   all(r[_col["근거 수준"]] in ("원문", "기사", "옛자료", "교수님") for r in _body),
+   [r[_col["근거 수준"]] for r in _body])
+ok("사업·설비는 비지 않음", all(r[_col["사업"]] and r[_col["설비"]] for r in _body))
+ok("링크는 비었거나 https", all(all(u.strip().startswith("https://") for u in r[_col["링크"]].split(";"))
+                              for r in _body if r[_col["링크"]].strip()))
+ok("건물지원 단가가 기준값(BASE)과 같다",
+   any("건물지원" in r[0] and "태양광" in r[1] and f"{c.BASE['단가_만원']}만 원" in r[_col["지원 내용"]]
+       and f"{c.BASE['상한_kW']} kW" in r[_col["조건_용량"]] for r in _body))
+
+
 # ── 한 바퀴 (가짜 인터넷) ──────────────────────────────────────
 
 FAKE_OC = "fakeoc99"

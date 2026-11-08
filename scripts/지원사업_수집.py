@@ -67,6 +67,34 @@ GOV24_KEEP = ("서비스ID", "서비스명", "소관기관명", "소관기관유
               "전화문의", "상세조회URL", "수정일시")
 GOV24_COMPARE = ("서비스명", "지원대상", "지원내용", "신청기한", "소관기관명")
 
+# ── 보조금24 「사찰 관련성」 규칙 ── 고치실 곳은 여기입니다 ─────────
+#
+# 사업마다 **위에서부터** 차례로 맞춰 보고 처음 걸린 줄의 분류를 씁니다.
+# (분류, 볼 칸, 말들). 말 가운데 하나라도 그 칸들에 들어 있으면 걸립니다.
+# 그래서 **순서가 중요합니다.** 「무관」을 맨 위에 둔 까닭은 축산 농가
+# 사업의 대상에 「건물」이 섞여 있어도 무관으로 보내기 위해서입니다.
+#
+# 어느 줄에도 안 걸린 사업은 「분류 못 함」으로 **보이게** 둡니다(접지
+# 않습니다). 모르는 것을 숨기지 않으려는 것입니다(CLAUDE.md 2장).
+# 그런 사업이 보이면 아래 목록에 말을 더해 주십시오.
+REL_HIGH, REL_HOUSE, REL_NONE, REL_UNKNOWN = "관련 높음", "주택 전용", "무관", "분류 못 함"
+RELEVANCE_RULES = (
+    (REL_NONE, ("서비스명", "지원대상"),
+     ("축산", "양돈", "양계", "가금", "축사", "가축", "귀농", "귀향", "농업인", "농가",
+      "어업", "양식", "소상공인", "견학", "주차장", "보증", "해외진출", "KS인증",
+      "농사용", "설치의무화제도", "일자리", "대학생", "중소벤처", "신성장기반")),
+    (REL_HIGH, ("서비스명", "지원대상"),
+     ("건물", "비주거", "비영리", "종교", "사회복지시설", "복지시설", "노유자", "일반건축물")),
+    # 에너지공단 건물지원·융복합에 얹는 지방비 추가 보조
+    (REL_HIGH, ("서비스명", "지원대상", "지원내용"), ("건물지원", "융복합")),
+    (REL_HIGH, ("서비스명",), ("금융지원",)),
+    (REL_HOUSE, ("서비스명", "지원대상"), ("주택", "가구", "거주", "세대")),
+)
+# 맞춰 보기 전에 지우는 말. 「건물등기부등본」의 「건물」이 「관련 높음」으로,
+# 「건축사 사무소」의 「축사」가 「무관」으로 걸리지 않게 합니다.
+RELEVANCE_IGNORE = ("건물등기부", "건축물대장", "건축법", "단독주택인 건물", "주택건물형",
+                    "지방자치단체 소유 건물", "건축사")
+
 KNREC = "https://www.knrec.or.kr"
 KNREC_LIST = KNREC + "/biz/pds/businoti/list.do"
 KNREC_VIEW = KNREC + "/biz/pds/businoti/view.do"
@@ -303,6 +331,18 @@ def gov24_item(row: dict, word: str) -> dict:
     it["시도"] = ""
     it["찾은말"] = [word]
     return it
+
+
+def relevance(item: dict) -> tuple:
+    """(분류, 걸린 말). RELEVANCE_RULES 를 위에서부터 봅니다."""
+    for cat, fields, words in RELEVANCE_RULES:
+        text = " ".join(str(item.get(f, "")) for f in fields)
+        for w in RELEVANCE_IGNORE:
+            text = text.replace(w, " ")
+        for w in words:
+            if w in text:
+                return cat, w
+    return REL_UNKNOWN, ""
 
 
 def collect_gov24(f: Fetcher, key: str, raw: dict, problems: list) -> dict:
@@ -1040,7 +1080,8 @@ def csv_candidates(gov_items: dict, gov_ids, knrec_ex: dict, knrec_ids, checked:
                      "원문", checked, e.get("링크", "")])
     for sid in gov_ids:
         it = gov_items.get(sid)
-        if not it:
+        # 보조금24 는 「관련 높음」만 후보로 냅니다(주택 전용·무관·분류 못 함은 뺌)
+        if not it or relevance(it)[0] != REL_HIGH:
             continue
         sido = it.get("시도", "")
         if sido.startswith("전국"):
@@ -1076,6 +1117,88 @@ def _date(s: str) -> str:
     return f"{s[:4]}-{s[4:6]}-{s[6:8]}" if re.fullmatch(r"\d{8}", s) else s
 
 
+def _gov_rows(items, ids, with_word=False):
+    rows = []
+    for i in ids:
+        it = items[i]
+        name = (f"[{md_cell(it['서비스명'])}]({it['상세조회URL']})"
+                if it["상세조회URL"] else it["서비스명"])
+        r = [it["시도"], name, it["소관기관명"], short(it["지원대상"], 70),
+             short(it["지원내용"], 90), it["신청기한"]]
+        if with_word:
+            r.append(relevance(it)[1] or "-")
+        rows.append(r)
+    return rows
+
+
+def _by_sido(items, ids):
+    order = {s: n for n, (s, _) in enumerate(sido_counts(items, ids))}
+    return sorted(ids, key=lambda i: (order.get(items[i]["시도"], 99), items[i]["서비스명"]))
+
+
+def gov24_section(items: dict, ids, rel: dict, label: str = "") -> list:
+    """보조금24 사업을 사찰 관련성으로 나눠 그립니다.
+
+    관련 높음 = 표 전체 · 분류 못 함 = 표(접지 않음) · 주택 전용 = 시·도별 건수만 ·
+    무관 = 접어 둠(<details>). 시·도별 건수 표는 넷을 나란히 셉니다.
+    """
+    L = []
+    group = {c: [i for i in ids if rel[i][0] == c]
+             for c in (REL_HIGH, REL_UNKNOWN, REL_HOUSE, REL_NONE)}
+    L.append(f"### {label}시·도별 건수")
+    L.append("")
+    rows = []
+    for s_, n in sido_counts(items, ids):
+        cnt = {c: sum(1 for i in group[c] if items[i]["시도"] == s_) for c in group}
+        rows.append((s_, n, cnt[REL_HIGH] or "-", cnt[REL_HOUSE] or "-", cnt[REL_NONE] or "-",
+                     cnt[REL_UNKNOWN] or "-"))
+    rows.append(("**합계**", len(ids), len(group[REL_HIGH]), len(group[REL_HOUSE]),
+                 len(group[REL_NONE]), len(group[REL_UNKNOWN])))
+    L += md_table(("시·도", "전체", REL_HIGH, REL_HOUSE, REL_NONE, REL_UNKNOWN), rows)
+    L.append("")
+    head = ("시·도", "사업명", "소관기관", "대상", "지원 내용", "신청기간")
+
+    L.append(f"### {label}{REL_HIGH} ({len(group[REL_HIGH])})")
+    L.append("")
+    if group[REL_HIGH]:
+        L.append("대상에 건물·비주거·비영리·종교·사회복지시설·노유자가 있거나, "
+                 "건물지원·융복합·금융지원에 얹는 사업입니다.")
+        L.append("")
+        L += md_table(head + ("걸린 말",), _gov_rows(items, _by_sido(items, group[REL_HIGH]), True))
+    else:
+        L.append("없습니다.")
+    L.append("")
+
+    if group[REL_UNKNOWN]:
+        L.append(f"### {REL_UNKNOWN} ({len(group[REL_UNKNOWN])}) - 사람이 봐 주십시오")
+        L.append("")
+        L.append("어느 규칙에도 걸리지 않았습니다. 사찰에 맞는지 보시고, 맞으면 "
+                 "`RELEVANCE_RULES` 에 말을 더해 주십시오.")
+        L.append("")
+        L += md_table(head, _gov_rows(items, _by_sido(items, group[REL_UNKNOWN])))
+        L.append("")
+
+    L.append(f"### {label}{REL_HOUSE} ({len(group[REL_HOUSE])})")
+    L.append("")
+    if group[REL_HOUSE]:
+        L.append("대상이 주택·가구·거주자로만 되어 있어 사찰은 해당하기 어렵습니다. "
+                 "시·도별 건수만 적습니다: " +
+                 " · ".join(f"{s_} {n}" for s_, n in sido_counts(items, group[REL_HOUSE])))
+    else:
+        L.append("없습니다.")
+    L.append("")
+
+    if group[REL_NONE]:
+        L.append("<details>")
+        L.append(f"<summary>{label}{REL_NONE} {len(group[REL_NONE])}건 - 펼쳐 보기</summary>")
+        L.append("")
+        L += md_table(head + ("걸린 말",), _gov_rows(items, _by_sido(items, group[REL_NONE]), True))
+        L.append("")
+        L.append("</details>")
+        L.append("")
+    return L
+
+
 def sido_counts(items: dict, ids=None) -> list:
     ids = list(items) if ids is None else ids
     cnt = {}
@@ -1097,7 +1220,12 @@ def build_report(ctx: dict) -> str:
     L.append(f"돌린 시각 {ctx['stamp']} · 요청 {ctx['requests']}회 · "
              f"원자료 `data/수집/{ctx['today'].strftime('%Y%m')}/`")
     L.append("")
-    if first:
+    if ctx.get("rebuilt"):
+        L.append("> **기준선에서 다시 쓴 보고서입니다.** 인터넷에 묻지 않고 `기준선.json` 에 "
+                 f"저장된 것({ctx['rebuilt']} 저장)을 지금 규칙으로 다시 나눴습니다. "
+                 "기준선은 바꾸지 않았습니다.")
+        L.append("")
+    elif first:
         L.append("> **첫 실행입니다.** 「지난번」이 없어 이번에 모은 것을 **전부 기준선으로**"
                  " 저장했습니다. 아래는 전체 목록이고, 다음부터는 달라진 것만 나옵니다.")
         L.append("")
@@ -1153,40 +1281,21 @@ def build_report(ctx: dict) -> str:
         L.append("이번에 읽지 못했습니다.")
     else:
         items, d = g["items"], g["d"]
-        local = [i for i in items if is_local(items[i])]
-        if first:
-            L.append(f"전체 **{len(items)}건**, 그중 지자체 사업 **{len(local)}건**.")
-            L.append("")
-            L.append("### 지자체 사업 시·도별 건수")
-            L.append("")
-            L += md_table(("시·도", "건수"), sido_counts(items, local))
-            other = [i for i in items if not is_local(items[i])]
-            if other:
-                L.append("")
-                L.append("지자체 밖: " + " · ".join(f"{s} {n}" for s, n in sido_counts(items, other)))
-            L.append("")
+        rel = {i: relevance(items[i]) for i in items}
         show = d["new"]
-        if show:
-            L.append("### " + ("전체 목록 (시·도별)" if first else "새로 잡힌 사업"))
+        if first:
+            local = [i for i in items if is_local(items[i])]
+            L.append(f"전체 **{len(items)}건**, 그중 지자체 사업 **{len(local)}건**. "
+                     "사찰 관련성은 스크립트 위쪽 `RELEVANCE_RULES` 로 자동으로 나눈 것입니다.")
             L.append("")
-            by = {}
-            for i in show:
-                by.setdefault(items[i]["시도"], []).append(i)
-            for s, _ in sido_counts(items, show):
-                L.append(f"#### {s} ({len(by[s])})")
-                L.append("")
-                L += md_table(("사업명", "소관기관", "대상", "지원 내용", "신청기간", "구분"),
-                              [(f"[{md_cell(items[i]['서비스명'])}]({items[i]['상세조회URL']})"
-                                if items[i]["상세조회URL"] else items[i]["서비스명"],
-                                items[i]["소관기관명"], short(items[i]["지원대상"], 70),
-                                short(items[i]["지원내용"], 90), items[i]["신청기한"],
-                                items[i]["사용자구분"]) for i in by[s]])
-                L.append("")
+        if show:
+            L += gov24_section(items, show, rel, "" if first else "새로 잡힌 ")
         if d["changed"]:
             L.append("### 내용이 바뀐 사업")
             L.append("")
             for i, ch in d["changed"]:
-                L.append(f"- **{md_cell(items[i]['서비스명'])}** ({items[i]['소관기관명']})")
+                L.append(f"- **{md_cell(items[i]['서비스명'])}** ({items[i]['소관기관명']}) "
+                         f"- {rel[i][0]}")
                 for fld, (a, b) in ch.items():
                     L.append(f"  - {fld}: {short(a, 80)} → **{short(b, 80)}**")
             L.append("")
@@ -1319,6 +1428,7 @@ def build_report(ctx: dict) -> str:
     cand = ctx["csv"]
     if cand:
         L.append("`data/지원사업.csv` 는 **고치지 않았습니다.** 맞는 줄만 골라 옮겨 주십시오. "
+                 f"보조금24 는 「{REL_HIGH}」만 넣었습니다. "
                  "보조금24 줄의 「조건_용량」은 비어 있습니다(공고문을 봐야 압니다). "
                  f"같은 내용을 `data/수집/{ctx['today'].strftime('%Y%m')}/지원사업_후보.csv` 에도 두었습니다.")
         L.append("")
@@ -1504,7 +1614,7 @@ def run(keys_path: str, out_dir: str, fetcher=None, now=None, log=print) -> str:
                           knrec["추출"], sorted(knrec["opened_now"], key=int, reverse=True), checked)
     if cand:
         save(os.path.join(run_dir, "지원사업_후보.csv"),
-             "﻿" + NL.join(csv_line(r) for r in [CSV_COLUMNS] + cand) + NL)
+             "\ufeff" + NL.join(csv_line(r) for r in [CSV_COLUMNS] + cand) + NL)
 
     summary = [
         ("① 보조금24", gov["d"], len(gov["items"])),
@@ -1529,11 +1639,63 @@ def run(keys_path: str, out_dir: str, fetcher=None, now=None, log=print) -> str:
     return rpath
 
 
+def rebuild(out_dir: str, now=None) -> str:
+    """인터넷 없이 `기준선.json` 만으로 보고서를 다시 씁니다.
+
+    `RELEVANCE_RULES` 를 고친 뒤 결과를 바로 보려고 둡니다. 기준선은
+    건드리지 않고, 보고서 이름 끝에 「_다시씀」을 붙여 그날 보고서를 덮지 않습니다.
+    """
+    now = now or _kst_now()
+    today = now.date()
+    base = load_json(os.path.join(out_dir, "기준선.json"))
+    if not base or not base.get("sources"):
+        raise FileNotFoundError("기준선.json 이 없습니다. 먼저 한 번 수집을 돌려 주십시오.")
+    src = base["sources"]
+    gi = (src.get("보조금24") or {}).get("items", {})
+    kn = src.get("에너지공단") or {}
+    lmi = (src.get("입법예고") or {}).get("items", {})
+    lg = (src.get("법령") or {}).get("groups", {})
+    gov = {"items": gi, "d": diff(None, gi, ()) if gi else None, "prev": {}}
+    knrec = {"items": kn.get("items", {}), "추출": kn.get("추출", {}),
+             "opened_now": set(kn.get("추출", {})),
+             "d": diff(None, kn.get("items", {}), ()) if kn else None}
+    lm = {"items": lmi, "d": diff(None, lmi, ()) if lmi else None}
+    law = {"groups": lg, "prev": {},
+           "d": {g: diff(None, v, ()) for g, v in lg.items()} if lg else None}
+    cmp_ = compare_base(knrec["추출"])
+    checked = (base.get("저장") or today.isoformat())[:10]
+    cand = csv_candidates(gi, sorted(gi), knrec["추출"],
+                          sorted(knrec["추출"], key=int, reverse=True), checked)
+    summary = [("① 보조금24", gov["d"], len(gi)), ("② 에너지공단 공고", knrec["d"], len(knrec["items"])),
+               ("③ 입법예고", lm["d"], len(lmi))]
+    summary += [(f"④ {g}", d, len(lg[g])) for g, d in (law["d"] or {}).items()]
+    stamp = (base.get("저장") or "")[:16].replace("T", " ")
+    ctx = {"today": today, "stamp": now.strftime("%Y-%m-%d %H:%M"), "first": True,
+           "rebuilt": stamp, "requests": 0, "base": cmp_, "summary": summary, "gov": gov,
+           "knrec": knrec, "lawmaking": lm, "law": law, "csv": cand, "problems": []}
+    rpath = os.path.join(out_dir, f"수집보고_{today.strftime('%Y%m%d')}_다시씀.md")
+    save(rpath, build_report(ctx))
+    if cand:
+        save(os.path.join(out_dir, today.strftime("%Y%m"), "지원사업_후보.csv"),
+             "\ufeff" + NL.join(csv_line(r) for r in [CSV_COLUMNS] + cand) + NL)
+    return rpath
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="지원사업·법령 자동 수집")
     ap.add_argument("--keys", default=os.path.join(ROOT, "키.txt"), help="키.txt 위치")
     ap.add_argument("--out", default=os.path.join(ROOT, "data", "수집"), help="내보낼 폴더")
+    ap.add_argument("--다시쓰기", dest="rebuild", action="store_true",
+                    help="인터넷 없이 기준선.json 으로 보고서만 다시 씀(규칙을 고친 뒤)")
     a = ap.parse_args(argv)
+    if a.rebuild:
+        try:
+            path = rebuild(a.out)
+        except FileNotFoundError as e:
+            print(f"  {e}")
+            return 1
+        print(f"  보고서를 다시 썼습니다: {path}")
+        return 0
     if not os.path.exists(a.keys):
         print(f"  키 파일이 없습니다: {a.keys}")
         print(f"  「{SERVICE}=」 과 「{LAWOC}=」 두 줄을 넣어 만들어 주세요.")

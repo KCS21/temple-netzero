@@ -140,6 +140,43 @@ for name, data in (("a.xlsx", b"x"), ("a.hwpx", b"not zip"), ("a.hwp", b"not ole
     except Exception as e:
         ok(f"{name} 못 열면 RuntimeError", False, type(e).__name__)
 
+print("== 사찰 관련성")
+R = c.relevance
+ok("사회복지시설 -> 관련 높음", R({"서비스명": "사회복지시설 신재생에너지 보급 지원", "지원대상": "사회복지시설"})[0] == c.REL_HIGH)
+ok("비영리·종교 -> 관련 높음", R({"서비스명": "x", "지원대상": "비영리법인, 종교단체"})[0] == c.REL_HIGH)
+ok("노유자 -> 관련 높음", R({"서비스명": "x", "지원대상": "노유자시설"}) == (c.REL_HIGH, "노유자"))
+ok("건물지원 지방비 추가 보조 -> 관련 높음",
+   R({"서비스명": "신재생에너지 보급 지원", "지원대상": "사업 승인자", "지원내용": "건물지원사업 선정 시 시비 추가"})[0] == c.REL_HIGH)
+ok("금융지원 -> 관련 높음 (대상의 「중소기업」에 걸리지 않음)",
+   R({"서비스명": "신재생에너지금융지원", "지원대상": "개인, 중소, 중견 기업 * 중소기업"})[0] == c.REL_HIGH)
+ok("단독주택 -> 주택 전용", R({"서비스명": "포천시 태양광 주택 지원", "지원대상": "단독주택의 소유자"})[0] == c.REL_HOUSE)
+ok("「건물등기부등본」의 건물은 안 셈",
+   R({"서비스명": "태양광주택보급사업", "지원대상": "건물등기부등본 또는 건축물대장의 용도가 단독주택인 건물로"})[0] == c.REL_HOUSE)
+ok("거주자 -> 주택 전용", R({"서비스명": "미니태양광 설치 지원", "지원대상": "노원구 거주 신청자"})[0] == c.REL_HOUSE)
+ok("축사 단열 -> 무관 (대상에 건물이 있어도)",
+   R({"서비스명": "축사 단열처리 지원", "지원대상": "양돈농가 건물"})[0] == c.REL_NONE)
+ok("「건축사 사무소」의 축사는 안 셈",
+   R({"서비스명": "가스냉방설비 설치지원", "지원대상": "건축사 사무소, 연면적 1,000m2 이상의 건물"})[0] == c.REL_HIGH)
+for name in ("발전소 시설 견학", "공영주차장 이용요금 감면", "기후환경보증", "신재생에너지산업 해외진출지원",
+             "귀농 정착 지원", "2026년 영광군 소상공인 신용보증수수료 지원"):
+    ok(f"{name} -> 무관", R({"서비스명": name, "지원대상": ""})[0] == c.REL_NONE)
+ok("어디에도 안 걸리면 「분류 못 함」", R({"서비스명": "설비 고장 접수 지원", "지원대상": "설비 소유자"})
+   == (c.REL_UNKNOWN, ""))
+ok("표본 3줄은 모두 주택 전용", all(R(c.gov24_item(r, "태양광"))[0] == c.REL_HOUSE for r in rows))
+
+_items = {}
+for n, (name, who) in enumerate((("사회복지시설 태양광", "사회복지시설"), ("주택 태양광", "단독주택"),
+                                 ("양돈 단열", "양돈농가"), ("고장 접수", "설비 소유자"))):
+    _items[str(n)] = dict(c.gov24_item({"서비스ID": str(n), "서비스명": name, "지원대상": who,
+                                        "소관기관명": "경기도 안양시"}, "x"), 시도="경기")
+_rel = {i: R(_items[i]) for i in _items}
+sec = chr(10).join(c.gov24_section(_items, list(_items), _rel))
+ok("관련 높음은 표로", "### 관련 높음 (1)" in sec and "사회복지시설 태양광" in sec)
+ok("주택 전용은 건수만 (사업명 없음)", "### 주택 전용 (1)" in sec and "주택 태양광" not in sec)
+ok("무관은 접어 둠", "<details>" in sec and sec.index("<details>") < sec.index("양돈 단열"))
+ok("분류 못 함은 펼친 채", "### 분류 못 함 (1)" in sec and sec.index("고장 접수") < sec.index("<details>"))
+ok("시·도별 건수 표에 넷이 나란히", "| 경기 | 4 | 1 | 1 | 1 | 1 |" in sec)
+
 print("== ③ 입법예고")
 lh = sample("입법예고_재생에너지.html")
 lr = c.lawmaking_rows(lh)
@@ -256,16 +293,26 @@ try:
     io.open(kp, "w", encoding="utf-8").write(f"공공데이터포털={FAKE_KEY}\n국가법령OC={FAKE_OC}\n")
     out = os.path.join(tmp, "수집")
     now1 = dt.datetime(2026, 11, 8, 10, 0)
-    r1 = c.run(kp, out, fetcher=Fake(), now=now1, log=lambda *_: None)
+    def add(rows):
+        base = dict(rows[0])
+        rows.append(dict(base, 서비스ID="T-HIGH", 서비스명="사회복지시설 신재생에너지 보급 지원",
+                         지원대상="사회복지시설", 소관기관명="기후에너지환경부", 소관기관유형="중앙행정기관"))
+        rows.append(dict(base, 서비스ID="T-NONE", 서비스명="축사 단열처리 지원", 지원대상="양돈농가"))
+    r1 = c.run(kp, out, fetcher=Fake(gov_patch=add), now=now1, log=lambda *_: None)
     rep = io.open(r1, encoding="utf-8").read()
     ok("보고서 이름", os.path.basename(r1) == "수집보고_20261108.md")
     ok("첫 실행 안내", "첫 실행입니다" in rep)
     ok("기준선 저장", os.path.exists(os.path.join(out, "기준선.json")))
     ok("원자료 폴더 YYYYMM", os.path.isdir(os.path.join(out, "202611", "첨부")))
     ok("기준값 같음", "문서 8장과 **같습니다**" in rep and "기준값 변경 후보" not in rep)
-    ok("시·도별 건수 표", "지자체 사업 시·도별 건수" in rep and "| 서울 |" in rep)
+    ok("시·도별 건수 표", "### 시·도별 건수" in rep and "| 서울 |" in rep)
     ok("CSV 후보 머리줄", c.csv_line(c.CSV_COLUMNS) in rep)
     ok("CSV 후보 파일", os.path.exists(os.path.join(out, "202611", "지원사업_후보.csv")))
+    cand = io.open(os.path.join(out, "202611", "지원사업_후보.csv"), encoding="utf-8-sig").read()
+    ok("CSV 후보에 관련 높음은 들어감", "사회복지시설 신재생에너지 보급 지원" in cand)
+    ok("CSV 후보에 주택 전용·무관은 안 들어감", "미니태양광 설치 지원" not in cand and "축사 단열" not in cand)
+    ok("보고서 CSV 칸도 같음", "미니태양광 설치 지원," not in rep and "사회복지시설 신재생에너지 보급 지원," in rep)
+    ok("보고서: 무관은 접힘", "<summary>무관 1건" in rep)
     ok("영농형 시행예정 법률", "영농형 태양광 발전사업의 활성화" in rep and "시행예정" in rep)
     ok("못 잡은 것 칸", "## 자동으로 못 잡은 것" in rep)
     allt = files_text(out)
@@ -277,6 +324,7 @@ try:
     def patch(rows):
         rows[0]["신청기한"] = "2027. 3. ~ 2027. 11."     # 바뀜
         rows.pop()                                       # 사라짐
+        add(rows)
     before = json.load(io.open(os.path.join(out, "기준선.json"), encoding="utf-8"))
     n_lm = len(before["sources"]["입법예고"]["items"])
     r2 = c.run(kp, out, fetcher=Fake(bad=("lawmaking",), gov_patch=patch, extra_notice=True),
@@ -294,6 +342,20 @@ try:
     ok("실패한 곳은 지난 기준선을 그대로 둔다",
        len(after["sources"]["입법예고"]["items"]) == n_lm and n_lm > 0)
     ok("법령은 달라진 것이 없다", "달라진 것이 없습니다" in rep2)
+
+    print("== 기준선에서 다시 쓰기 (인터넷 없음)")
+    snap = io.open(os.path.join(out, "기준선.json"), encoding="utf-8").read()
+    rr = c.rebuild(out, now=dt.datetime(2026, 12, 9, 9, 0))
+    reb = io.open(rr, encoding="utf-8").read()
+    ok("다시 쓴 보고서 이름", os.path.basename(rr) == "수집보고_20261209_다시씀.md")
+    ok("다시 쓴 안내", "기준선에서 다시 쓴 보고서" in reb and "첫 실행입니다" not in reb)
+    ok("관련성으로 나뉜다", "### 관련 높음 (1)" in reb and "<summary>무관" in reb)
+    ok("기준선은 그대로", io.open(os.path.join(out, "기준선.json"), encoding="utf-8").read() == snap)
+    try:
+        c.rebuild(os.path.join(tmp, "없는곳"))
+        ok("기준선이 없으면 알림", False)
+    except FileNotFoundError:
+        ok("기준선이 없으면 알림", True)
 
     print("== 한 바퀴 - 모든 곳 실패해도 보고서는 나온다")
     r3 = c.run(kp, os.path.join(tmp, "수집3"),

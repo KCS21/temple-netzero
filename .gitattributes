@@ -1,0 +1,18 @@
+# 줄바꿈 고정 (2026-11-09)
+# 저장소 안에는 늘 LF 로 둡니다. 컴퓨터마다 core.autocrlf 가 달라도
+# 같은 파일이 CRLF/LF 차이만으로 「바뀐 파일」로 잡히지 않게 합니다.
+# 윈도우 작업본에서는 CRLF 로 풀려도 됩니다(파이썬·엑셀 모두 읽습니다).
+* text=auto
+
+# 배치 파일은 작업본도 CRLF 라야 cmd 가 바르게 읽습니다(CLAUDE.md 7장)
+*.bat text eol=crlf
+
+# 글자가 아닌 파일 - 줄바꿈을 건드리지 않습니다
+*.xlsx binary
+*.hwp binary
+*.hwpx binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.ttf binary
+*.zip binary

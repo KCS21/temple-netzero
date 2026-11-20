@@ -647,7 +647,8 @@ if picked:
         lvl, msg = em.confidence(es["total"], gs["total"])
 
         if es["total"] == 0 and gs["total"] == 0:
-            _sibling_block(picked, year)
+            if dongs:                      # 건물이 없으면 위(2단계)에서 이미 보여 줌
+                _sibling_block(picked, year)
             st.error(f"""**{picked.jibunAddr}** 의 {year}년 자료가 없습니다.
 
 이 지번에 없을 뿐, 전기가 **다른 지번으로 잡혀 있을 수 있습니다.**
